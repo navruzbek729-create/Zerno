@@ -1,0 +1,908 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ZERNO — Free Knowledge Hub</title>
+<meta name="description" content="ZERNO — bepul onlayn testlar va o'quv qo'llanmalari platformasi. Matematika, Tarix, Ona tili, Biologiya, Kimyo va Ingliz tili. 0 so'm, 100% bepul.">
+<meta name="theme-color" content="#080911">
+<meta property="og:title" content="ZERNO — Free Knowledge Hub">
+<meta property="og:description" content="Bepul onlayn testlar va o'quv qo'llanmalari. 0 so'm — 100% bepul.">
+<meta property="og:image" content="assets/og-cover.jpg">
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          display: ['"Space Grotesk"', 'Inter', 'system-ui', 'sans-serif'],
+          sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        },
+        colors: { obsidian: '#080911' },
+      },
+    },
+  };
+</script>
+<style>
+  :root {
+    --bg: #080911;
+    --glass: rgba(255, 255, 255, 0.055);
+    --glass-strong: rgba(255, 255, 255, 0.085);
+    --stroke: rgba(255, 255, 255, 0.12);
+    --stroke-hi: rgba(255, 255, 255, 0.28);
+    --text: #f4f4fb;
+    --muted: rgba(228, 230, 245, 0.62);
+    --violet: #a855f7;
+    --cyan: #22d3ee;
+    --pink: #e879f9;
+    color-scheme: dark;
+  }
+  html { scroll-behavior: smooth; overflow-x: clip; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: Inter, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  ::selection { background: rgba(168, 85, 247, .45); }
+
+  /* Spatial glow — fon nurlari */
+  .spatial-glow { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+  .spatial-glow i {
+    position: absolute; border-radius: 9999px; filter: blur(110px); opacity: .55;
+    animation: drift 22s ease-in-out infinite alternate;
+  }
+  .spatial-glow i:nth-child(1) { width: 46vw; height: 46vw; left: -12vw; top: -14vw; background: radial-gradient(circle, #7c3aed 0%, transparent 65%); }
+  .spatial-glow i:nth-child(2) { width: 40vw; height: 40vw; right: -10vw; top: 18vh; background: radial-gradient(circle, #0891b2 0%, transparent 65%); animation-delay: -6s; }
+  .spatial-glow i:nth-child(3) { width: 36vw; height: 36vw; left: 30vw; bottom: -18vw; background: radial-gradient(circle, #c026d3 0%, transparent 65%); opacity: .35; animation-delay: -12s; }
+  .spatial-grid {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 75%);
+  }
+  @keyframes drift { to { transform: translate3d(6vw, 4vh, 0) scale(1.12); } }
+
+  /* Glassmorphism */
+  .glass {
+    background: linear-gradient(155deg, rgba(255,255,255,.10), rgba(255,255,255,.025) 45%, rgba(255,255,255,.04));
+    backdrop-filter: blur(35px) saturate(160%);
+    -webkit-backdrop-filter: blur(35px) saturate(160%);
+    border: 1px solid var(--stroke);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.18), inset 0 -1px 0 rgba(255,255,255,.03), 0 24px 60px -24px rgba(0,0,0,.7);
+  }
+  .glass-hover { transition: transform .45s cubic-bezier(.2,.8,.2,1), border-color .3s, box-shadow .45s; }
+  .glass-hover:hover {
+    transform: translateY(-4px);
+    border-color: var(--stroke-hi);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 30px 80px -30px rgba(124,58,237,.55);
+  }
+  .text-grad {
+    background: linear-gradient(100deg, #fff 0%, #e9d5ff 30%, #a5f3fc 65%, #fff 100%);
+    background-size: 200% auto;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: shine 8s linear infinite;
+  }
+  .text-neon {
+    background: linear-gradient(95deg, #c084fc, #22d3ee);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  @keyframes shine { to { background-position: 200% center; } }
+
+  .btn-primary {
+    position: relative; isolation: isolate;
+    background: linear-gradient(120deg, #8b5cf6, #6d28d9 45%, #0891b2);
+    box-shadow: 0 0 0 1px rgba(255,255,255,.18) inset, 0 10px 40px -8px rgba(139,92,246,.75), 0 0 28px -6px rgba(34,211,238,.6);
+    transition: transform .25s, box-shadow .25s, filter .25s;
+  }
+  .btn-primary:hover { transform: translateY(-2px); filter: brightness(1.12); box-shadow: 0 0 0 1px rgba(255,255,255,.3) inset, 0 16px 50px -8px rgba(139,92,246,.9), 0 0 40px -4px rgba(34,211,238,.7); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-glass { background: rgba(255,255,255,.06); border: 1px solid var(--stroke); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); transition: background .25s, border-color .25s, transform .25s; }
+  .btn-glass:hover { background: rgba(255,255,255,.12); border-color: var(--stroke-hi); transform: translateY(-2px); }
+  :focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; border-radius: 14px; }
+
+  /* Spatial logo + neon orbita */
+  .logo-orb { position: relative; display: grid; place-items: center; }
+  .logo-orb .ring {
+    position: absolute; inset: -6px; border-radius: 9999px;
+    border: 1.5px solid transparent;
+    background: conic-gradient(from 0deg, transparent 0 55%, #22d3ee 70%, #c084fc 85%, transparent 100%) border-box;
+    -webkit-mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    animation: spin 3.2s linear infinite;
+    filter: drop-shadow(0 0 6px #22d3ee);
+  }
+  .logo-orb .ring.r2 { inset: -11px; animation-duration: 5.5s; animation-direction: reverse; opacity: .6; filter: drop-shadow(0 0 6px #c084fc); }
+  .logo-orb img { border-radius: 12px; box-shadow: 0 0 22px rgba(168,85,247,.65), 0 0 40px rgba(34,211,238,.25); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Hero orbita sahnasi */
+  .orbit-stage { position: relative; aspect-ratio: 1; width: min(100%, 460px); margin-inline: auto; }
+  .orbit-stage .orbit { position: absolute; border-radius: 9999px; border: 1px solid rgba(255,255,255,.08); inset: 0; }
+  .orbit-stage .orbit.o1 { inset: 10%; border-color: rgba(34,211,238,.22); transform: rotateX(68deg) rotateZ(0deg); animation: orbit 14s linear infinite; }
+  .orbit-stage .orbit.o2 { inset: 3%; border-color: rgba(192,132,252,.22); transform: rotateX(68deg) rotateY(28deg); animation: orbit2 20s linear infinite; }
+  .orbit-stage .orbit .dot { position: absolute; top: -5px; left: 50%; width: 10px; height: 10px; margin-left: -5px; border-radius: 9999px; background: #a5f3fc; box-shadow: 0 0 14px 4px #22d3ee; }
+  .orbit-stage .orbit.o2 .dot { background: #f0abfc; box-shadow: 0 0 14px 4px #c084fc; }
+  @keyframes orbit { to { transform: rotateX(68deg) rotateZ(360deg); } }
+  @keyframes orbit2 { to { transform: rotateX(68deg) rotateY(28deg) rotateZ(-360deg); } }
+  .orbit-core { position: absolute; inset: 22%; border-radius: 22%; animation: float 7s ease-in-out infinite; }
+  .orbit-core img { width: 100%; height: 100%; border-radius: 22%; box-shadow: 0 0 60px rgba(168,85,247,.55), 0 0 120px rgba(34,211,238,.25), 0 40px 80px -20px rgba(0,0,0,.8); }
+  .orbit-core::after { content: ""; position: absolute; left: 10%; right: 10%; bottom: -26%; height: 18%; border-radius: 50%; background: radial-gradient(ellipse, rgba(139,92,246,.45), transparent 70%); filter: blur(10px); }
+  @keyframes float { 0%,100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-14px) rotate(1deg); } }
+  .chip-float { position: absolute; animation: float 9s ease-in-out infinite; }
+
+  /* Fan kartalari ranglari */
+  .tone { --c1: #a78bfa; --c2: #7c3aed; }
+  .tone-violet { --c1: #c4b5fd; --c2: #7c3aed; }
+  .tone-amber { --c1: #fcd34d; --c2: #d97706; }
+  .tone-cyan { --c1: #a5f3fc; --c2: #0891b2; }
+  .tone-emerald { --c1: #6ee7b7; --c2: #059669; }
+  .tone-rose { --c1: #fda4af; --c2: #e11d48; }
+  .tone-sky { --c1: #bae6fd; --c2: #0284c7; }
+  .tone-fuchsia { --c1: #f5d0fe; --c2: #c026d3; }
+  .tone-lime { --c1: #d9f99d; --c2: #65a30d; }
+  .icon-tile {
+    background: linear-gradient(145deg, var(--c1), var(--c2));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 10px 30px -6px var(--c2), 0 0 24px -4px var(--c2);
+  }
+  .card-glow { position: absolute; inset: auto -30% -60% auto; width: 70%; aspect-ratio: 1; border-radius: 9999px; background: radial-gradient(circle, var(--c2), transparent 70%); opacity: .22; filter: blur(30px); transition: opacity .4s; pointer-events: none; }
+  .glass-hover:hover .card-glow { opacity: .42; }
+
+  /* Modal */
+  .modal-backdrop { background: rgba(4,5,10,.62); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+  .modal-enter { animation: pop .42s cubic-bezier(.2,.9,.25,1.15) both; }
+  @keyframes pop { from { opacity: 0; transform: translateY(18px) scale(.96); } }
+  .opt { transition: background .2s, border-color .2s, transform .2s, box-shadow .2s; }
+  .opt:hover { background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.25); }
+  .opt[aria-checked="true"] { background: linear-gradient(120deg, rgba(139,92,246,.28), rgba(34,211,238,.16)); border-color: rgba(192,132,252,.75); box-shadow: 0 0 0 1px rgba(192,132,252,.35), 0 0 30px -8px rgba(168,85,247,.8); }
+  .opt[aria-checked="true"] .opt-key { background: linear-gradient(140deg, #c084fc, #22d3ee); color: #080911; border-color: transparent; }
+  .q-dot { transition: all .2s; }
+  .q-dot.answered { background: rgba(168,85,247,.35); border-color: rgba(192,132,252,.6); }
+  .q-dot.current { box-shadow: 0 0 0 2px #22d3ee; }
+
+  /* Toast */
+  .toast { animation: toastIn .4s cubic-bezier(.2,.9,.25,1.1) both; }
+  .toast.out { animation: toastOut .3s ease forwards; }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(14px) scale(.96); } }
+  @keyframes toastOut { to { opacity: 0; transform: translateY(8px) scale(.97); } }
+
+  .reveal { opacity: 0; transform: translateY(22px); transition: opacity .8s ease, transform .8s cubic-bezier(.2,.8,.2,1); }
+  .reveal.in { opacity: 1; transform: none; }
+  .skeleton { background: linear-gradient(90deg, rgba(255,255,255,.04), rgba(255,255,255,.09), rgba(255,255,255,.04)); background-size: 200% 100%; animation: sk 1.4s infinite; }
+  @keyframes sk { to { background-position: -200% 0; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+    .reveal { opacity: 1; transform: none; }
+  }
+</style>
+</head>
+<body class="min-h-screen">
+  <div class="spatial-glow" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div class="spatial-grid" aria-hidden="true"></div>
+
+  <!-- ============ NAVBAR ============ -->
+  <header class="fixed top-0 inset-x-0 z-40 px-4 pt-4">
+    <nav class="glass mx-auto max-w-6xl rounded-2xl px-4 sm:px-5 h-16 flex items-center justify-between" aria-label="Asosiy menyu">
+      <a href="#top" class="flex items-center gap-3 group" aria-label="ZERNO bosh sahifa">
+        <span class="logo-orb w-9 h-9">
+          <span class="ring"></span><span class="ring r2"></span>
+          <img src="assets/logo.webp" alt="" width="36" height="36" class="w-9 h-9 relative">
+        </span>
+        <span class="font-display text-xl font-bold tracking-tight">ZERNO<span class="text-neon">.</span></span>
+      </a>
+      <div class="hidden md:flex items-center gap-1 text-sm text-white/70">
+        <a href="#stats" class="px-3 py-2 rounded-xl hover:text-white hover:bg-white/5 transition">Statistika</a>
+        <a href="#subjects" class="px-3 py-2 rounded-xl hover:text-white hover:bg-white/5 transition">Fanlar & Testlar</a>
+        <a href="#guides" class="px-3 py-2 rounded-xl hover:text-white hover:bg-white/5 transition">Qo'llanmalar</a>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-emerald-400/10 text-emerald-300 border border-emerald-300/20">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-300 shadow-[0_0_8px_#6ee7b7]"></span>100% bepul
+        </span>
+        <a href="#subjects" class="btn-primary hidden sm:inline-flex items-center rounded-xl px-4 h-10 text-sm font-semibold">Boshlash</a>
+        <button id="menuBtn" class="md:hidden btn-glass w-10 h-10 rounded-xl grid place-items-center" aria-label="Menyuni ochish" aria-expanded="false" aria-controls="mobileMenu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+      </div>
+    </nav>
+    <div id="mobileMenu" class="glass md:hidden mx-auto max-w-6xl rounded-2xl mt-2 p-2 hidden">
+      <a href="#stats" class="block px-4 py-3 rounded-xl hover:bg-white/5">Statistika</a>
+      <a href="#subjects" class="block px-4 py-3 rounded-xl hover:bg-white/5">Fanlar & Testlar</a>
+      <a href="#guides" class="block px-4 py-3 rounded-xl hover:bg-white/5">Qo'llanmalar</a>
+    </div>
+  </header>
+
+  <main id="top" class="relative z-10">
+    <!-- ============ HERO ============ -->
+    <section class="mx-auto max-w-6xl px-4 pt-32 sm:pt-40 pb-16 grid lg:grid-cols-[1.1fr_.9fr] gap-12 items-center">
+      <div class="reveal">
+        <div class="glass inline-flex items-center gap-2 rounded-full pl-1.5 pr-4 py-1.5 text-xs sm:text-sm text-white/80 mb-7">
+          <span class="rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-gradient-to-r from-violet-500 to-cyan-500 text-white">YANGI</span>
+          Free Knowledge Hub · 0 so'm
+        </div>
+        <h1 class="font-display font-bold tracking-tight text-[2.6rem] leading-[1.05] sm:text-6xl lg:text-7xl">
+          <span class="text-grad">Bilim — hamma uchun.</span><br>
+          <span class="text-neon">Butunlay bepul.</span>
+        </h1>
+        <p class="mt-6 text-base sm:text-lg text-white/65 max-w-xl leading-relaxed">
+          ZERNO — interaktiv onlayn testlar va elektron qo'llanmalar platformasi. Bilimingizni sinang, natijani darhol ko'ring va darsliklarni bepul yuklab oling. Ro'yxatdan o'tish shart emas.
+        </p>
+        <div class="mt-9 flex flex-wrap gap-3">
+          <button id="heroStart" class="btn-primary rounded-2xl px-6 h-14 font-semibold inline-flex items-center gap-2">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.9-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14z"/></svg>
+            Testni boshlash
+          </button>
+          <a href="#guides" class="btn-glass rounded-2xl px-6 h-14 font-semibold inline-flex items-center gap-2">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6.5a2.5 2.5 0 0 0 0 5H19"/></svg>
+            Qo'llanmalar
+          </a>
+        </div>
+        <div class="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-white/55">
+          <span class="inline-flex items-center gap-2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6ee7b7" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>Natija darhol</span>
+          <span class="inline-flex items-center gap-2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6ee7b7" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>Vaqtli rejim</span>
+          <span class="inline-flex items-center gap-2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6ee7b7" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>Ro'yxatdan o'tishsiz</span>
+        </div>
+      </div>
+
+      <div class="reveal relative" aria-hidden="true">
+        <div class="orbit-stage">
+          <div class="orbit o2"><span class="dot"></span></div>
+          <div class="orbit o1"><span class="dot"></span></div>
+          <div class="orbit-core"><img src="assets/logo-512.webp" alt="" width="512" height="512"></div>
+          <div class="chip-float glass rounded-2xl px-4 py-3 left-0 top-[12%]" style="animation-delay:-2s">
+            <div class="text-[11px] uppercase tracking-wider text-white/50">Fanlar</div>
+            <div class="font-display text-xl font-semibold" data-bind="subjects">—</div>
+          </div>
+          <div class="chip-float glass rounded-2xl px-4 py-3 right-0 top-[58%]" style="animation-delay:-5s">
+            <div class="text-[11px] uppercase tracking-wider text-white/50">Narxi</div>
+            <div class="font-display text-xl font-semibold text-emerald-300">0 so'm</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ STATISTIKA ============ -->
+    <section id="stats" class="mx-auto max-w-6xl px-4 py-10 scroll-mt-28">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+        <div class="glass glass-hover tone tone-violet relative overflow-hidden rounded-3xl p-5 sm:p-6 reveal">
+          <div class="card-glow"></div>
+          <div class="icon-tile w-11 h-11 rounded-2xl grid place-items-center mb-5">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          </div>
+          <div class="font-display text-3xl sm:text-4xl font-bold" data-count="tests">0</div>
+          <div class="text-sm text-white/55 mt-1">Jami testlar</div>
+          <div class="text-xs text-white/35 mt-3"><span data-bind="questions">0</span> ta savol</div>
+        </div>
+        <div class="glass glass-hover tone tone-cyan relative overflow-hidden rounded-3xl p-5 sm:p-6 reveal">
+          <div class="card-glow"></div>
+          <div class="icon-tile w-11 h-11 rounded-2xl grid place-items-center mb-5">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          </div>
+          <div class="font-display text-3xl sm:text-4xl font-bold" data-count="guides">0</div>
+          <div class="text-sm text-white/55 mt-1">Qo'llanmalar</div>
+          <div class="text-xs text-white/35 mt-3">PDF formatda</div>
+        </div>
+        <div class="glass glass-hover tone tone-fuchsia relative overflow-hidden rounded-3xl p-5 sm:p-6 reveal">
+          <div class="card-glow"></div>
+          <div class="icon-tile w-11 h-11 rounded-2xl grid place-items-center mb-5">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div class="font-display text-3xl sm:text-4xl font-bold" data-count="students">0</div>
+          <div class="text-sm text-white/55 mt-1">Faol o'quvchilar</div>
+          <div class="text-xs text-white/35 mt-3"><span data-bind="attempts">0</span> ta urinish</div>
+        </div>
+        <div class="glass glass-hover tone tone-emerald relative overflow-hidden rounded-3xl p-5 sm:p-6 reveal">
+          <div class="card-glow"></div>
+          <div class="icon-tile w-11 h-11 rounded-2xl grid place-items-center mb-5">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          </div>
+          <div class="font-display text-3xl sm:text-4xl font-bold text-emerald-300">100%</div>
+          <div class="text-sm text-white/55 mt-1">Bepul</div>
+          <div class="text-xs text-white/35 mt-3">Har doim 0 so'm</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ FANLAR & TESTLAR ============ -->
+    <section id="subjects" class="mx-auto max-w-6xl px-4 py-16 scroll-mt-24">
+      <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-5 mb-8 reveal">
+        <div>
+          <p class="text-sm font-medium text-cyan-300/90 tracking-wide uppercase">Fanlar & Testlar</p>
+          <h2 class="font-display text-3xl sm:text-5xl font-bold tracking-tight mt-2"><span class="text-grad">Fanni tanlang</span></h2>
+          <p class="text-white/55 mt-3 max-w-lg">Har bir test vaqt bilan o'tkaziladi. Yakunda to'g'ri javoblar va xatolaringizni ko'rasiz.</p>
+        </div>
+        <div id="subjectFilter" class="flex flex-wrap gap-2" role="tablist" aria-label="Fan bo'yicha saralash"></div>
+      </div>
+      <div id="subjectGrid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+        <div class="skeleton rounded-3xl h-64"></div><div class="skeleton rounded-3xl h-64"></div><div class="skeleton rounded-3xl h-64"></div>
+      </div>
+    </section>
+
+    <!-- ============ QO'LLANMALAR ============ -->
+    <section id="guides" class="mx-auto max-w-6xl px-4 py-16 scroll-mt-24">
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-5 mb-8 reveal">
+        <div>
+          <p class="text-sm font-medium text-violet-300/90 tracking-wide uppercase">Qo'llanmalar & PDF resurslar</p>
+          <h2 class="font-display text-3xl sm:text-5xl font-bold tracking-tight mt-2"><span class="text-grad">Elektron darsliklar</span></h2>
+          <p class="text-white/55 mt-3 max-w-lg">Barcha qo'llanmalarni bepul yuklab oling va oflayn o'qing.</p>
+        </div>
+        <label class="glass rounded-2xl flex items-center gap-2 px-4 h-12 w-full md:w-80">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-white/45 shrink-0"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <span class="sr-only">Qidirish</span>
+          <input id="guideSearch" type="search" placeholder="Qo'llanma qidirish..." class="bg-transparent outline-none w-full text-sm placeholder:text-white/35">
+        </label>
+      </div>
+      <div id="guideList" class="glass rounded-3xl divide-y divide-white/[.07] overflow-hidden reveal">
+        <div class="p-6"><div class="skeleton h-12 rounded-xl"></div></div>
+      </div>
+    </section>
+
+    <!-- ============ CTA ============ -->
+    <section class="mx-auto max-w-6xl px-4 py-16">
+      <div class="glass relative overflow-hidden rounded-[2rem] p-8 sm:p-14 text-center reveal">
+        <div class="absolute -top-24 left-1/2 -translate-x-1/2 w-[70%] h-48 rounded-full bg-violet-600/30 blur-3xl pointer-events-none"></div>
+        <img src="assets/logo.webp" alt="" width="72" height="72" class="relative mx-auto w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-2xl shadow-[0_0_40px_rgba(168,85,247,.6)]">
+        <h2 class="relative font-display text-3xl sm:text-5xl font-bold tracking-tight mt-6"><span class="text-grad">Bugun bitta test — ertaga yangi bilim.</span></h2>
+        <p class="relative text-white/60 mt-4 max-w-xl mx-auto">Hech qanday to'lov, obuna yoki ro'yxatdan o'tish yo'q. Shunchaki boshlang.</p>
+        <button id="ctaStart" class="relative btn-primary rounded-2xl px-7 h-14 font-semibold mt-8 inline-flex items-center gap-2">
+          Tasodifiy testni boshlash
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="relative z-10 mx-auto max-w-6xl px-4 pb-10 pt-6">
+    <div class="glass rounded-2xl px-5 py-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-white/50">
+      <div class="flex items-center gap-3">
+        <img src="assets/logo.webp" alt="" width="28" height="28" class="w-7 h-7 rounded-lg">
+        <span><b class="font-display text-white/85">ZERNO.</b> Free Knowledge Hub © <span id="year"></span></span>
+      </div>
+      <div class="flex items-center gap-4">
+        <span id="modeBadge" class="hidden text-xs px-2.5 py-1 rounded-full border border-amber-300/25 text-amber-200/80 bg-amber-300/5">Demo rejim</span>
+        <a id="adminLink" href="admin" class="hidden hover:text-white transition">Admin</a>
+        <span>0 so'm · 100% bepul</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ============ TEST MODAL ============ -->
+  <div id="testModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-backdrop absolute inset-0" data-close></div>
+    <div class="relative h-full w-full flex items-end sm:items-center justify-center p-0 sm:p-6 pointer-events-none">
+      <div id="modalPanel" class="glass modal-enter pointer-events-auto w-full sm:max-w-2xl max-h-[100dvh] sm:max-h-[92vh] overflow-y-auto rounded-t-[2rem] sm:rounded-[2rem] bg-[#0d0f1c]/70">
+        <div id="modalBody"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toastlar -->
+  <div id="toasts" class="fixed z-[60] bottom-4 right-4 left-4 sm:left-auto flex flex-col gap-2 items-stretch sm:items-end pointer-events-none" aria-live="polite"></div>
+
+<script>
+/* ===================================================================
+   ZERNO — Frontend
+   Server bo'lsa (/api) undan ishlaydi, bo'lmasa ichki demo ma'lumotlardan.
+   =================================================================== */
+const DEMO_DATA = /*DEMO*/{"subjects":[{"id":"matematika","name":"Matematika","icon":"calc","color":"violet","description":"Algebra, geometriya va mantiqiy masalalar","order":1},{"id":"tarix","name":"Tarix","icon":"landmark","color":"amber","description":"O'zbekiston va jahon tarixi","order":2},{"id":"ona-tili","name":"Ona tili","icon":"pen","color":"cyan","description":"Grammatika, imlo va adabiyot","order":3},{"id":"biologiya-kimyo","name":"Biologiya / Kimyo","icon":"flask","color":"emerald","description":"Tirik organizmlar va moddalar dunyosi","order":4},{"id":"ingliz-tili","name":"Ingliz tili","icon":"globe","color":"rose","description":"Grammar, vocabulary va reading","order":5}],"tests":[{"id":"mat-1","subjectId":"matematika","title":"Algebra asoslari","durationMin":10,"level":"Boshlang'ich","questions":[{"q":"2x + 6 = 14 bo'lsa, x nechaga teng?","options":["3","4","5","8"],"correct":1},{"q":"200 ning 15 foizi nechaga teng?","options":["20","25","30","35"],"correct":2},{"q":"√144 = ?","options":["11","12","13","14"],"correct":1},{"q":"Uchburchak ichki burchaklarining yig'indisi nechaga teng?","options":["90°","180°","270°","360°"],"correct":1},{"q":"3² + 4² = ?","options":["7","12","25","49"],"correct":2}]},{"id":"tar-1","subjectId":"tarix","title":"O'zbekiston tarixi","durationMin":10,"level":"O'rta","questions":[{"q":"O'zbekiston mustaqilligi qachon e'lon qilingan?","options":["1990-yil 20-iyun","1991-yil 31-avgust","1992-yil 8-dekabr","1991-yil 25-dekabr"],"correct":1},{"q":"Amir Temur qaysi yili tug'ilgan?","options":["1320","1336","1370","1405"],"correct":1},{"q":"\"Boburnoma\" asarining muallifi kim?","options":["Alisher Navoiy","Zahiriddin Muhammad Bobur","Mirzo Ulug'bek","Abdulla Qodiriy"],"correct":1},{"q":"Mirzo Ulug'bek rasadxonasi qaysi shaharda joylashgan?","options":["Buxoro","Xiva","Samarqand","Toshkent"],"correct":2},{"q":"O'zbekiston Respublikasi Konstitutsiyasi birinchi marta qachon qabul qilingan?","options":["1991-yil 31-avgust","1992-yil 8-dekabr","1993-yil 1-sentabr","1995-yil 8-dekabr"],"correct":1}]},{"id":"ona-1","subjectId":"ona-tili","title":"So'z turkumlari va adabiyot","durationMin":10,"level":"Boshlang'ich","questions":[{"q":"\"Kitob\" so'zi qaysi so'z turkumiga kiradi?","options":["Fe'l","Ot","Sifat","Ravish"],"correct":1},{"q":"Qaysi so'z sifat hisoblanadi?","options":["yugurmoq","chiroyli","tez-tez","uch"],"correct":1},{"q":"\"O'tkan kunlar\" romanining muallifi kim?","options":["Abdulla Qodiriy","Cho'lpon","Oybek","G'afur G'ulom"],"correct":0},{"q":"Gapning bosh bo'laklarini ko'rsating.","options":["Ega va kesim","To'ldiruvchi va aniqlovchi","Hol va ega","Kesim va hol"],"correct":0},{"q":"Qaysi so'z fe'l hisoblanadi?","options":["daftar","yashil","o'qimoq","ko'p"],"correct":2}]},{"id":"bio-1","subjectId":"biologiya-kimyo","title":"Hujayra va moddalar","durationMin":10,"level":"O'rta","questions":[{"q":"Suvning kimyoviy formulasi qaysi?","options":["H₂O","CO₂","O₂","NaCl"],"correct":0},{"q":"Hujayraning \"energiya stansiyasi\" deb qaysi organoid ataladi?","options":["Yadro","Mitoxondriya","Ribosoma","Lizosoma"],"correct":1},{"q":"Fotosintez jarayonida o'simlik qaysi gazni yutadi?","options":["Kislorod","Azot","Karbonat angidrid","Vodorod"],"correct":2},{"q":"Davriy jadvalda kislorodning kimyoviy belgisi qaysi?","options":["K","O","Ox","Kr"],"correct":1},{"q":"Inson yuragi nechta kameradan iborat?","options":["2","3","4","5"],"correct":2}]},{"id":"eng-1","subjectId":"ingliz-tili","title":"Grammar Basics","durationMin":10,"level":"Beginner","questions":[{"q":"She ___ to school every day.","options":["go","goes","going","gone"],"correct":1},{"q":"What is the plural of \"child\"?","options":["childs","children","childes","childrens"],"correct":1},{"q":"Past simple form of \"write\":","options":["writed","wrote","written","writes"],"correct":1},{"q":"The opposite of \"expensive\" is:","options":["cheap","costly","rich","high"],"correct":0},{"q":"I have lived here ___ 2020.","options":["for","since","from","at"],"correct":1}]}],"guides":[{"id":"g-mat","subjectId":"matematika","title":"Algebra: formulalar to'plami","description":"Asosiy formulalar, tenglamalar va misollar yechimi","pages":0,"url":""},{"id":"g-tar","subjectId":"tarix","title":"O'zbekiston tarixi: muhim sanalar","description":"Eng muhim tarixiy voqealar xronologiyasi","pages":0,"url":""},{"id":"g-ona","subjectId":"ona-tili","title":"Ona tili: imlo qoidalari","description":"Lotin yozuvidagi imlo qoidalari va mashqlar","pages":0,"url":""},{"id":"g-bio","subjectId":"biologiya-kimyo","title":"Biologiya va kimyo: qisqa konspekt","description":"Hujayra tuzilishi va kimyoviy elementlar","pages":0,"url":""},{"id":"g-eng","subjectId":"ingliz-tili","title":"English Grammar: Tenses","description":"Barcha zamonlar jadvali va misollar","pages":0,"url":""}]};
+
+const ICONS = {
+  calc: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/>',
+  landmark: '<path d="M3 22h18M6 18v-7M10 18v-7M14 18v-7M18 18v-7M12 2l9 5H3z"/>',
+  pen: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  flask: '<path d="M9 3h6M10 3v6.5L4.6 18.4A2 2 0 0 0 6.3 21h11.4a2 2 0 0 0 1.7-2.6L14 9.5V3"/><path d="M7 15h10"/>',
+  globe: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+  atom: '<circle cx="12" cy="12" r="1.5"/><ellipse cx="12" cy="12" rx="10" ry="4"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(120 12 12)"/>',
+  book: '<path d="M4 19.5V5a2 2 0 0 1 2-2h14v14H6.5A2.5 2.5 0 0 0 4 19.5zm0 0A2.5 2.5 0 0 0 6.5 22H20v-5"/>',
+  code: '<path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/>',
+  music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+  map: '<path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4z"/><path d="M8 2v16M16 6v16"/>',
+};
+const svgIcon = (name, size = 24, stroke = 'white') =>
+  `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ICONS.book}</svg>`;
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const $ = (sel, root = document) => root.querySelector(sel);
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+function clientId() {
+  let id = store.get('zerno_cid', null);
+  if (!id) { id = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now()); store.set('zerno_cid', id); }
+  return id;
+}
+
+/* ---------------- Ma'lumot qatlami ---------------- */
+const state = { mode: 'demo', data: null, filter: 'all', guideQuery: '' };
+
+async function fetchJson(url, opts) {
+  const r = await fetch(url, { cache: 'no-store', ...opts });
+  const ct = r.headers.get('content-type') || '';
+  if (!ct.includes('application/json')) throw new Error('JSON emas');
+  const body = await r.json();
+  if (!r.ok) throw new Error(body.error || 'Server xatosi');
+  return body;
+}
+
+function demoStats() {
+  const d = DEMO_DATA;
+  const local = store.get('zerno_demo_stats', { attempts: 0 });
+  return {
+    tests: d.tests.length,
+    questions: d.tests.reduce((n, t) => n + t.questions.length, 0),
+    guides: d.guides.length,
+    subjects: d.subjects.length,
+    students: local.attempts ? 1 : 0,
+    attempts: local.attempts,
+  };
+}
+
+async function loadData() {
+  try {
+    const data = await fetchJson('api/data');
+    if (!Array.isArray(data.subjects)) throw new Error('format');
+    state.mode = 'live';
+    state.data = data;
+  } catch {
+    state.mode = 'demo';
+    state.data = {
+      subjects: [...DEMO_DATA.subjects].sort((a, b) => a.order - b.order),
+      tests: DEMO_DATA.tests.map((t) => ({ id: t.id, subjectId: t.subjectId, title: t.title, durationMin: t.durationMin, level: t.level, questionCount: t.questions.length })),
+      guides: DEMO_DATA.guides,
+      stats: demoStats(),
+    };
+  }
+}
+
+async function getTest(id) {
+  if (state.mode === 'live') return fetchJson(`api/tests/${encodeURIComponent(id)}`);
+  const t = DEMO_DATA.tests.find((x) => x.id === id);
+  if (!t) throw new Error('Test topilmadi');
+  return { ...t, questions: t.questions.map((q) => ({ q: q.q, options: q.options })) };
+}
+
+async function submitTest(id, answers) {
+  if (state.mode === 'live') {
+    const res = await fetchJson(`api/tests/${encodeURIComponent(id)}/submit`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ answers, clientId: clientId() }),
+    });
+    if (res.stats) { state.data.stats = res.stats; renderStats(false); }
+    return res;
+  }
+  const t = DEMO_DATA.tests.find((x) => x.id === id);
+  const review = t.questions.map((q, i) => ({ correct: q.correct, chosen: Number.isInteger(answers[i]) ? answers[i] : null }));
+  const local = store.get('zerno_demo_stats', { attempts: 0 });
+  local.attempts += 1; store.set('zerno_demo_stats', local);
+  state.data.stats = demoStats(); renderStats(false);
+  return { score: review.filter((r) => r.chosen === r.correct).length, total: review.length, review };
+}
+
+/* ---------------- Render: statistika ---------------- */
+function animateCount(el, to) {
+  const from = Number(el.dataset.v || 0);
+  el.dataset.v = to;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || from === to) { el.textContent = to.toLocaleString('uz-UZ'); return; }
+  const t0 = performance.now(), dur = 1200;
+  const step = (now) => {
+    const p = Math.min((now - t0) / dur, 1), e = 1 - Math.pow(1 - p, 3);
+    el.textContent = Math.round(from + (to - from) * e).toLocaleString('uz-UZ');
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+function renderStats() {
+  const s = state.data.stats;
+  document.querySelectorAll('[data-count]').forEach((el) => animateCount(el, s[el.dataset.count] || 0));
+  document.querySelectorAll('[data-bind]').forEach((el) => { el.textContent = (s[el.dataset.bind] ?? 0).toLocaleString('uz-UZ'); });
+}
+
+/* ---------------- Render: fanlar ---------------- */
+const subjectById = (id) => state.data.subjects.find((s) => s.id === id);
+const testsOf = (sid) => state.data.tests.filter((t) => t.subjectId === sid);
+
+function renderFilter() {
+  const chips = [{ id: 'all', name: 'Hammasi' }, ...state.data.subjects];
+  $('#subjectFilter').innerHTML = chips.map((c) => `
+    <button role="tab" aria-selected="${state.filter === c.id}" data-filter="${esc(c.id)}"
+      class="px-4 h-10 rounded-xl text-sm font-medium transition ${state.filter === c.id
+        ? 'bg-white text-[#080911] shadow-[0_0_24px_-4px_rgba(255,255,255,.6)]'
+        : 'btn-glass text-white/75'}">${esc(c.name)}</button>`).join('');
+}
+
+function renderSubjects() {
+  const list = state.data.subjects.filter((s) => state.filter === 'all' || s.id === state.filter);
+  const grid = $('#subjectGrid');
+  if (!list.length) {
+    grid.innerHTML = `<div class="glass rounded-3xl p-10 text-center text-white/55 sm:col-span-2 lg:col-span-3">Hozircha fanlar qo'shilmagan.</div>`;
+    return;
+  }
+  grid.innerHTML = list.map((s) => {
+    const tests = testsOf(s.id);
+    const qCount = tests.reduce((n, t) => n + (t.questionCount || 0), 0);
+    const best = store.get('zerno_best', {});
+    const bestScores = tests.map((t) => best[t.id]).filter((v) => v !== undefined);
+    const bestPct = bestScores.length ? Math.max(...bestScores) : null;
+    return `
+    <article class="glass glass-hover tone tone-${esc(s.color)} relative overflow-hidden rounded-3xl p-6 flex flex-col">
+      <div class="card-glow"></div>
+      <div class="flex items-start justify-between">
+        <div class="icon-tile w-14 h-14 rounded-2xl grid place-items-center">${svgIcon(s.icon, 26)}</div>
+        ${bestPct !== null ? `<span class="text-xs px-2.5 py-1 rounded-full bg-white/8 border border-white/10 text-white/70">Eng yaxshi: <b class="text-white">${bestPct}%</b></span>` : ''}
+      </div>
+      <h3 class="font-display text-2xl font-semibold mt-5">${esc(s.name)}</h3>
+      <p class="text-sm text-white/55 mt-1.5 min-h-[2.5rem]">${esc(s.description || '')}</p>
+      <div class="flex gap-2 mt-4 text-xs text-white/60">
+        <span class="px-2.5 py-1 rounded-lg bg-white/[.06] border border-white/[.08]">${tests.length} ta test</span>
+        <span class="px-2.5 py-1 rounded-lg bg-white/[.06] border border-white/[.08]">${qCount} ta savol</span>
+      </div>
+      <div class="mt-auto pt-6">
+        <button data-start-subject="${esc(s.id)}" ${tests.length ? '' : 'disabled'}
+          class="w-full h-12 rounded-2xl font-semibold inline-flex items-center justify-center gap-2 ${tests.length ? 'btn-primary' : 'btn-glass opacity-50 cursor-not-allowed'}">
+          ${tests.length ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.9-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14z"/></svg>Testni Boshlash` : 'Tez orada'}
+        </button>
+      </div>
+    </article>`;
+  }).join('');
+}
+
+/* ---------------- Render: qo'llanmalar ---------------- */
+function fmtSize(b) {
+  if (!b) return '';
+  return b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
+}
+function renderGuides() {
+  const q = state.guideQuery.trim().toLowerCase();
+  const list = state.data.guides.filter((g) => !q || (g.title + ' ' + (g.description || '') + ' ' + (subjectById(g.subjectId)?.name || '')).toLowerCase().includes(q));
+  const box = $('#guideList');
+  if (!list.length) {
+    box.innerHTML = `<div class="p-10 text-center text-white/50">${q ? 'Hech narsa topilmadi.' : 'Hozircha qo\'llanmalar qo\'shilmagan.'}</div>`;
+    return;
+  }
+  box.innerHTML = list.map((g) => {
+    const s = subjectById(g.subjectId);
+    const meta = [g.pages ? g.pages + ' bet' : '', fmtSize(g.size)].filter(Boolean).join(' · ');
+    const ready = Boolean(g.url);
+    return `
+    <div class="tone tone-${esc(s?.color || 'violet')} flex flex-col sm:flex-row sm:items-center gap-4 p-5 sm:px-6 hover:bg-white/[.03] transition">
+      <div class="flex items-center gap-4 flex-1 min-w-0">
+        <div class="relative w-12 h-14 shrink-0 rounded-xl grid place-items-center bg-gradient-to-b from-rose-400/90 to-rose-600 shadow-[0_8px_24px_-6px_rgba(244,63,94,.7)]">
+          <span class="text-[10px] font-bold tracking-wider">PDF</span>
+          <span class="absolute top-0 right-0 w-3.5 h-3.5 bg-white/30 rounded-bl-md rounded-tr-xl"></span>
+        </div>
+        <div class="min-w-0">
+          <div class="font-semibold truncate">${esc(g.title)}</div>
+          <div class="text-sm text-white/50 truncate">${esc(g.description || '')}</div>
+          <div class="flex flex-wrap items-center gap-2 mt-1.5 text-xs">
+            ${s ? `<span class="px-2 py-0.5 rounded-md bg-white/[.06] border border-white/[.08] text-white/70">${esc(s.name)}</span>` : ''}
+            ${meta ? `<span class="text-white/40">${meta}</span>` : ''}
+          </div>
+        </div>
+      </div>
+      ${ready
+        ? `<a href="${esc(g.url)}" target="_blank" rel="noopener" download data-guide="${esc(g.id)}" class="btn-glass shrink-0 rounded-xl h-11 px-5 inline-flex items-center justify-center gap-2 text-sm font-semibold">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Yuklab olish</a>`
+        : `<button data-soon="${esc(g.title)}" class="shrink-0 rounded-xl h-11 px-5 inline-flex items-center justify-center gap-2 text-sm font-medium border border-dashed border-white/15 text-white/45">Tez orada</button>`}
+    </div>`;
+  }).join('');
+}
+
+/* ---------------- Toast ---------------- */
+function toast(msg, type = 'info') {
+  const colors = { info: '#22d3ee', ok: '#6ee7b7', warn: '#fcd34d', err: '#fb7185' };
+  const el = document.createElement('div');
+  el.className = 'toast glass pointer-events-auto rounded-2xl px-4 py-3 text-sm flex items-center gap-3 sm:max-w-sm bg-[#0d0f1c]/60';
+  el.innerHTML = `<span class="w-2 h-2 rounded-full shrink-0" style="background:${colors[type]};box-shadow:0 0 10px ${colors[type]}"></span><span>${esc(msg)}</span>`;
+  $('#toasts').appendChild(el);
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 300); }, 3200);
+}
+
+/* ---------------- Test modal ---------------- */
+const quiz = { test: null, subject: null, idx: 0, answers: [], left: 0, timer: null, done: false, confirmClose: false, lastFocus: null };
+const KEYS = ['A', 'B', 'C', 'D', 'E', 'F'];
+const modal = $('#testModal');
+const body = $('#modalBody');
+
+function openModal() {
+  quiz.lastFocus = document.activeElement;
+  modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  const p = $('#modalPanel'); p.classList.remove('modal-enter'); void p.offsetWidth; p.classList.add('modal-enter');
+}
+function closeModal(force = false) {
+  if (!force && quiz.test && !quiz.done && quiz.answers.some((a) => a !== null)) {
+    quiz.confirmClose = true; renderQuestion(); return;
+  }
+  stopTimer();
+  modal.classList.add('hidden');
+  document.body.style.overflow = '';
+  if (quiz.test && !quiz.done && force) toast('Test bekor qilindi', 'warn');
+  quiz.test = null;
+  quiz.lastFocus?.focus?.();
+}
+
+function headerHtml(title, sub, icon, color) {
+  return `
+  <div class="tone tone-${esc(color)} flex items-center gap-4 p-5 sm:p-6 border-b border-white/[.08]">
+    <div class="icon-tile w-12 h-12 rounded-2xl grid place-items-center shrink-0">${svgIcon(icon, 22)}</div>
+    <div class="min-w-0 flex-1">
+      <div class="text-xs text-white/50">${esc(sub)}</div>
+      <h3 id="modalTitle" class="font-display text-lg sm:text-xl font-semibold truncate">${esc(title)}</h3>
+    </div>
+    <button data-close class="btn-glass w-10 h-10 rounded-xl grid place-items-center shrink-0" aria-label="Yopish">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>`;
+}
+
+// Bir nechta test bo'lsa — tanlash oynasi
+function openPicker(subjectId) {
+  const s = subjectById(subjectId);
+  const tests = testsOf(subjectId);
+  if (tests.length === 1) return startTest(tests[0].id);
+  quiz.test = null;
+  body.innerHTML = headerHtml(s.name, 'Testni tanlang', s.icon, s.color) + `
+    <div class="p-5 sm:p-6 space-y-3">
+      ${tests.map((t) => `
+        <button data-pick="${esc(t.id)}" class="opt w-full text-left rounded-2xl border border-white/10 bg-white/[.04] p-4 flex items-center gap-4">
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold">${esc(t.title)}</div>
+            <div class="text-sm text-white/50 mt-0.5">${t.questionCount} ta savol · ${t.durationMin} daqiqa${t.level ? ' · ' + esc(t.level) : ''}</div>
+          </div>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" class="text-white/50"><path d="m9 18 6-6-6-6"/></svg>
+        </button>`).join('')}
+    </div>`;
+  openModal();
+}
+
+async function startTest(testId) {
+  const meta = state.data.tests.find((t) => t.id === testId);
+  const s = subjectById(meta?.subjectId) || { name: 'Test', icon: 'book', color: 'violet' };
+  if (modal.classList.contains('hidden')) openModal();
+  body.innerHTML = headerHtml(meta?.title || 'Test', s.name, s.icon, s.color) +
+    `<div class="p-10 grid place-items-center text-white/60"><div class="w-10 h-10 rounded-full border-2 border-white/15 border-t-cyan-300 animate-spin"></div><p class="mt-4 text-sm">Savollar yuklanmoqda...</p></div>`;
+  try {
+    const test = await getTest(testId);
+    if (!test.questions?.length) throw new Error('Bu testda savollar yo\'q');
+    Object.assign(quiz, { test, subject: s, idx: 0, answers: test.questions.map(() => null), left: test.durationMin * 60, done: false, confirmClose: false, forceFinish: false });
+    startTimer();
+    renderQuestion();
+    toast(`"${test.title}" boshlandi. Omad!`, 'info');
+  } catch (e) {
+    body.innerHTML = headerHtml('Xatolik', s.name, s.icon, s.color) + `<div class="p-8 text-center text-white/60">${esc(e.message)}</div>`;
+    toast('Testni yuklab bo\'lmadi', 'err');
+  }
+}
+
+function startTimer() {
+  stopTimer();
+  quiz.timer = setInterval(() => {
+    quiz.left -= 1;
+    const el = $('#qTimer');
+    if (el) { el.textContent = fmtTime(quiz.left); el.parentElement.classList.toggle('text-rose-300', quiz.left <= 30); }
+    if (quiz.left === 60) toast('1 daqiqa qoldi!', 'warn');
+    if (quiz.left <= 0) { stopTimer(); toast('Vaqt tugadi — test yakunlandi', 'warn'); finishTest(); }
+  }, 1000);
+}
+function stopTimer() { clearInterval(quiz.timer); quiz.timer = null; }
+const fmtTime = (s) => `${String(Math.floor(Math.max(s, 0) / 60)).padStart(2, '0')}:${String(Math.max(s, 0) % 60).padStart(2, '0')}`;
+
+function renderQuestion() {
+  const { test, subject: s, idx, answers } = quiz;
+  const q = test.questions[idx];
+  const total = test.questions.length;
+  const answered = answers.filter((a) => a !== null).length;
+  const isLast = idx === total - 1;
+  body.innerHTML = headerHtml(test.title, s.name, s.icon, s.color) + `
+  <div class="p-5 sm:p-6">
+    <div class="flex items-center justify-between gap-3">
+      <span class="text-sm text-white/60">Savol <b class="text-white font-display text-base">${idx + 1}</b> / ${total}</span>
+      <span class="inline-flex items-center gap-2 rounded-xl px-3 h-9 bg-white/[.06] border border-white/10 font-display font-semibold tabular-nums ${quiz.left <= 30 ? 'text-rose-300' : ''}" aria-label="Qolgan vaqt">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></svg>
+        <span id="qTimer">${fmtTime(quiz.left)}</span>
+      </span>
+    </div>
+    <div class="mt-4 h-1.5 rounded-full bg-white/[.07] overflow-hidden" role="progressbar" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${answered}">
+      <div class="h-full rounded-full bg-gradient-to-r from-violet-500 to-cyan-400 shadow-[0_0_12px_#22d3ee] transition-all duration-500" style="width:${(answered / total) * 100}%"></div>
+    </div>
+
+    <p class="font-display text-xl sm:text-2xl font-semibold leading-snug mt-7">${esc(q.q)}</p>
+
+    <div class="mt-6 grid gap-3" role="radiogroup" aria-label="Javob variantlari">
+      ${q.options.map((o, i) => `
+        <button role="radio" aria-checked="${answers[idx] === i}" data-opt="${i}" class="opt w-full text-left rounded-2xl border border-white/10 bg-white/[.04] p-4 flex items-center gap-4">
+          <span class="opt-key w-9 h-9 shrink-0 rounded-xl grid place-items-center border border-white/15 bg-white/[.05] font-display font-semibold text-sm">${KEYS[i]}</span>
+          <span class="flex-1">${esc(o)}</span>
+        </button>`).join('')}
+    </div>
+
+    <div class="mt-6 flex flex-wrap gap-1.5" aria-label="Savollar">
+      ${test.questions.map((_, i) => `<button data-goto="${i}" aria-label="${i + 1}-savol" class="q-dot w-8 h-8 rounded-lg text-xs font-semibold border border-white/10 bg-white/[.04] ${answers[i] !== null ? 'answered' : ''} ${i === idx ? 'current' : ''}">${i + 1}</button>`).join('')}
+    </div>
+
+    ${quiz.confirmClose ? `
+    <div class="mt-6 rounded-2xl border border-amber-300/25 bg-amber-300/[.06] p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+      <p class="flex-1 text-sm text-amber-100/90">Testdan chiqmoqchimisiz? Javoblaringiz saqlanmaydi.</p>
+      <div class="flex gap-2">
+        <button data-stay class="btn-glass rounded-xl h-10 px-4 text-sm font-semibold">Davom etish</button>
+        <button data-force-close class="rounded-xl h-10 px-4 text-sm font-semibold bg-rose-500/80 hover:bg-rose-500 transition">Chiqish</button>
+      </div>
+    </div>` : ''}
+
+    <div class="mt-6 flex items-center justify-between gap-3">
+      <button data-prev ${idx === 0 ? 'disabled' : ''} class="btn-glass rounded-xl h-12 px-5 font-semibold inline-flex items-center gap-2 disabled:opacity-35 disabled:pointer-events-none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>Oldingi
+      </button>
+      ${isLast
+        ? `<button data-finish class="btn-primary rounded-xl h-12 px-6 font-semibold">Yakunlash (${answered}/${total})</button>`
+        : `<button data-next class="btn-primary rounded-xl h-12 px-6 font-semibold inline-flex items-center gap-2">Keyingi<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg></button>`}
+    </div>
+  </div>`;
+}
+
+async function finishTest() {
+  if (quiz.done || !quiz.test) return;
+  const unanswered = quiz.answers.filter((a) => a === null).length;
+  if (unanswered && quiz.left > 0 && !quiz.forceFinish) {
+    quiz.forceFinish = true;
+    toast(`${unanswered} ta savolga javob berilmagan. Yakunlash uchun yana bir marta bosing.`, 'warn');
+    return;
+  }
+  quiz.done = true; stopTimer();
+  const { test, subject: s } = quiz;
+  try {
+    const res = await submitTest(test.id, quiz.answers);
+    const pct = Math.round((res.score / res.total) * 100);
+    const best = store.get('zerno_best', {});
+    if (best[test.id] === undefined || pct > best[test.id]) { best[test.id] = pct; store.set('zerno_best', best); renderSubjects(); }
+    renderResult(res, pct);
+    toast(pct >= 80 ? 'Ajoyib natija! 🎉' : pct >= 50 ? 'Yaxshi! Yana mashq qiling.' : 'Qayta urinib ko\'ring — siz uddalaysiz!', pct >= 50 ? 'ok' : 'info');
+  } catch (e) {
+    quiz.done = false;
+    toast('Natijani yuborib bo\'lmadi: ' + e.message, 'err');
+  }
+}
+
+function renderResult(res, pct) {
+  const { test, subject: s } = quiz;
+  const C = 2 * Math.PI * 52;
+  const used = test.durationMin * 60 - Math.max(quiz.left, 0);
+  const msg = pct >= 80 ? 'Ajoyib natija!' : pct >= 50 ? 'Yaxshi natija' : 'Mashq qilishda davom eting';
+  body.innerHTML = headerHtml(test.title, 'Natija', s.icon, s.color) + `
+  <div class="p-5 sm:p-6">
+    <div class="flex flex-col sm:flex-row items-center gap-6">
+      <div class="relative w-36 h-36 shrink-0">
+        <svg viewBox="0 0 120 120" class="w-full h-full -rotate-90">
+          <defs><linearGradient id="rg" x1="0" x2="1"><stop offset="0" stop-color="#a855f7"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs>
+          <circle cx="60" cy="60" r="52" stroke="rgba(255,255,255,.08)" stroke-width="10" fill="none"/>
+          <circle id="ringFg" cx="60" cy="60" r="52" stroke="url(#rg)" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C}" style="transition:stroke-dashoffset 1.2s cubic-bezier(.2,.8,.2,1);filter:drop-shadow(0 0 6px #a855f7)"/>
+        </svg>
+        <div class="absolute inset-0 grid place-items-center text-center">
+          <div><div class="font-display text-4xl font-bold">${pct}%</div><div class="text-xs text-white/50">${res.score} / ${res.total}</div></div>
+        </div>
+      </div>
+      <div class="text-center sm:text-left">
+        <h4 class="font-display text-2xl font-bold text-grad">${msg}</h4>
+        <p class="text-white/55 mt-2 text-sm">To'g'ri javoblar: <b class="text-emerald-300">${res.score}</b> · Xato: <b class="text-rose-300">${res.total - res.score}</b> · Sarflangan vaqt: <b class="text-white/80">${fmtTime(used)}</b></p>
+      </div>
+    </div>
+
+    <h5 class="mt-8 mb-3 text-sm font-semibold text-white/70 uppercase tracking-wider">Javoblar tahlili</h5>
+    <div class="space-y-2.5">
+      ${test.questions.map((q, i) => {
+        const r = res.review[i]; const ok = r.chosen === r.correct;
+        return `
+        <div class="rounded-2xl border ${ok ? 'border-emerald-300/20 bg-emerald-300/[.04]' : 'border-rose-300/20 bg-rose-300/[.04]'} p-4">
+          <div class="flex gap-3">
+            <span class="w-6 h-6 shrink-0 rounded-full grid place-items-center text-xs font-bold ${ok ? 'bg-emerald-400 text-[#080911]' : 'bg-rose-400 text-[#080911]'}">${ok ? '✓' : '✕'}</span>
+            <div class="min-w-0">
+              <p class="text-sm font-medium">${i + 1}. ${esc(q.q)}</p>
+              <p class="text-xs mt-1.5 text-white/55">
+                ${r.chosen === null ? '<span class="text-amber-200/80">Javob berilmagan</span>' : `Sizning javob: <span class="${ok ? 'text-emerald-300' : 'text-rose-300'}">${KEYS[r.chosen]}) ${esc(q.options[r.chosen])}</span>`}
+                ${ok ? '' : ` · To'g'ri: <span class="text-emerald-300">${KEYS[r.correct]}) ${esc(q.options[r.correct])}</span>`}
+              </p>
+            </div>
+          </div>
+        </div>`; }).join('')}
+    </div>
+
+    <div class="mt-6 flex flex-col sm:flex-row gap-3">
+      <button data-retry class="btn-primary rounded-xl h-12 px-6 font-semibold flex-1">Qayta urinish</button>
+      <button data-close class="btn-glass rounded-xl h-12 px-6 font-semibold flex-1">Yopish</button>
+    </div>
+  </div>`;
+  requestAnimationFrame(() => requestAnimationFrame(() => { const r = $('#ringFg'); if (r) r.style.strokeDashoffset = C * (1 - pct / 100); }));
+}
+
+/* ---------------- Hodisalar ---------------- */
+modal.addEventListener('click', (e) => {
+  const t = e.target.closest('button, [data-close]');
+  if (!t) return;
+  if (t.hasAttribute('data-close')) return closeModal();
+  if (t.hasAttribute('data-force-close')) return closeModal(true);
+  if (t.hasAttribute('data-stay')) { quiz.confirmClose = false; return renderQuestion(); }
+  if (t.dataset.pick) return startTest(t.dataset.pick);
+  if (!quiz.test || quiz.done) { if (t.hasAttribute('data-retry') && quiz.test) startTest(quiz.test.id); return; }
+  if (t.dataset.opt !== undefined) {
+    quiz.answers[quiz.idx] = Number(t.dataset.opt); quiz.forceFinish = false;
+    renderQuestion();
+    // avtomatik keyingisiga o'tish
+    if (quiz.idx < quiz.test.questions.length - 1) setTimeout(() => { if (quiz.test && !quiz.done) { quiz.idx++; renderQuestion(); } }, 380);
+    return;
+  }
+  if (t.hasAttribute('data-next')) { quiz.idx = Math.min(quiz.idx + 1, quiz.test.questions.length - 1); return renderQuestion(); }
+  if (t.hasAttribute('data-prev')) { quiz.idx = Math.max(quiz.idx - 1, 0); return renderQuestion(); }
+  if (t.dataset.goto !== undefined) { quiz.idx = Number(t.dataset.goto); return renderQuestion(); }
+  if (t.hasAttribute('data-finish')) return finishTest();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (modal.classList.contains('hidden')) return;
+  if (e.key === 'Escape') return closeModal();
+  if (!quiz.test || quiz.done || quiz.confirmClose) return;
+  const k = e.key.toUpperCase();
+  const i = KEYS.indexOf(k) >= 0 ? KEYS.indexOf(k) : ['1', '2', '3', '4', '5', '6'].indexOf(e.key);
+  if (i >= 0 && i < quiz.test.questions[quiz.idx].options.length) { $(`[data-opt="${i}"]`)?.click(); }
+  else if (e.key === 'ArrowRight' && quiz.idx < quiz.test.questions.length - 1) { quiz.idx++; renderQuestion(); }
+  else if (e.key === 'ArrowLeft' && quiz.idx > 0) { quiz.idx--; renderQuestion(); }
+});
+
+$('#subjectGrid').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-start-subject]');
+  if (b && !b.disabled) openPicker(b.dataset.startSubject);
+});
+$('#subjectFilter').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-filter]');
+  if (!b) return;
+  state.filter = b.dataset.filter;
+  renderFilter(); renderSubjects();
+  if (state.filter !== 'all') toast(`${subjectById(state.filter)?.name} fani tanlandi`, 'info');
+});
+$('#guideSearch').addEventListener('input', (e) => { state.guideQuery = e.target.value; renderGuides(); });
+$('#guideList').addEventListener('click', (e) => {
+  const soon = e.target.closest('[data-soon]');
+  if (soon) toast(`"${soon.dataset.soon}" tez orada qo'shiladi`, 'info');
+  const dl = e.target.closest('[data-guide]');
+  if (dl) toast('Yuklab olish boshlandi', 'ok');
+});
+
+function startRandom() {
+  const tests = state.data?.tests || [];
+  if (!tests.length) return toast('Hozircha testlar yo\'q', 'warn');
+  startTest(tests[Math.floor(Math.random() * tests.length)].id);
+}
+$('#heroStart').addEventListener('click', () => document.getElementById('subjects').scrollIntoView({ behavior: 'smooth' }));
+$('#ctaStart').addEventListener('click', startRandom);
+
+const menuBtn = $('#menuBtn'), mobileMenu = $('#mobileMenu');
+menuBtn.addEventListener('click', () => {
+  const open = mobileMenu.classList.toggle('hidden') === false;
+  menuBtn.setAttribute('aria-expanded', String(open));
+});
+mobileMenu.addEventListener('click', (e) => { if (e.target.closest('a')) { mobileMenu.classList.add('hidden'); menuBtn.setAttribute('aria-expanded', 'false'); } });
+
+/* Scroll animatsiyasi */
+const io = 'IntersectionObserver' in window
+  ? new IntersectionObserver((entries) => entries.forEach((en) => { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } }), { threshold: 0.12 })
+  : null;
+document.querySelectorAll('.reveal').forEach((el, i) => { el.style.transitionDelay = `${(i % 4) * 70}ms`; io ? io.observe(el) : el.classList.add('in'); });
+
+/* ---------------- Ishga tushirish ---------------- */
+(async function init() {
+  $('#year').textContent = new Date().getFullYear();
+  await loadData();
+  if (state.mode === 'live') $('#adminLink').classList.remove('hidden');
+  else $('#modeBadge').classList.remove('hidden');
+  renderStats(); renderFilter(); renderSubjects(); renderGuides();
+})();
+</script>
+</body>
+</html>

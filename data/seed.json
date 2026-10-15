@@ -1,0 +1,69 @@
+{
+  "subjects": [
+    { "id": "matematika", "name": "Matematika", "icon": "calc", "color": "violet", "description": "Algebra, geometriya va mantiqiy masalalar", "order": 1 },
+    { "id": "tarix", "name": "Tarix", "icon": "landmark", "color": "amber", "description": "O'zbekiston va jahon tarixi", "order": 2 },
+    { "id": "ona-tili", "name": "Ona tili", "icon": "pen", "color": "cyan", "description": "Grammatika, imlo va adabiyot", "order": 3 },
+    { "id": "biologiya-kimyo", "name": "Biologiya / Kimyo", "icon": "flask", "color": "emerald", "description": "Tirik organizmlar va moddalar dunyosi", "order": 4 },
+    { "id": "ingliz-tili", "name": "Ingliz tili", "icon": "globe", "color": "rose", "description": "Grammar, vocabulary va reading", "order": 5 }
+  ],
+  "tests": [
+    {
+      "id": "mat-1", "subjectId": "matematika", "title": "Algebra asoslari", "durationMin": 10, "level": "Boshlang'ich",
+      "questions": [
+        { "q": "2x + 6 = 14 bo'lsa, x nechaga teng?", "options": ["3", "4", "5", "8"], "correct": 1 },
+        { "q": "200 ning 15 foizi nechaga teng?", "options": ["20", "25", "30", "35"], "correct": 2 },
+        { "q": "√144 = ?", "options": ["11", "12", "13", "14"], "correct": 1 },
+        { "q": "Uchburchak ichki burchaklarining yig'indisi nechaga teng?", "options": ["90°", "180°", "270°", "360°"], "correct": 1 },
+        { "q": "3² + 4² = ?", "options": ["7", "12", "25", "49"], "correct": 2 }
+      ]
+    },
+    {
+      "id": "tar-1", "subjectId": "tarix", "title": "O'zbekiston tarixi", "durationMin": 10, "level": "O'rta",
+      "questions": [
+        { "q": "O'zbekiston mustaqilligi qachon e'lon qilingan?", "options": ["1990-yil 20-iyun", "1991-yil 31-avgust", "1992-yil 8-dekabr", "1991-yil 25-dekabr"], "correct": 1 },
+        { "q": "Amir Temur qaysi yili tug'ilgan?", "options": ["1320", "1336", "1370", "1405"], "correct": 1 },
+        { "q": "\"Boburnoma\" asarining muallifi kim?", "options": ["Alisher Navoiy", "Zahiriddin Muhammad Bobur", "Mirzo Ulug'bek", "Abdulla Qodiriy"], "correct": 1 },
+        { "q": "Mirzo Ulug'bek rasadxonasi qaysi shaharda joylashgan?", "options": ["Buxoro", "Xiva", "Samarqand", "Toshkent"], "correct": 2 },
+        { "q": "O'zbekiston Respublikasi Konstitutsiyasi birinchi marta qachon qabul qilingan?", "options": ["1991-yil 31-avgust", "1992-yil 8-dekabr", "1993-yil 1-sentabr", "1995-yil 8-dekabr"], "correct": 1 }
+      ]
+    },
+    {
+      "id": "ona-1", "subjectId": "ona-tili", "title": "So'z turkumlari va adabiyot", "durationMin": 10, "level": "Boshlang'ich",
+      "questions": [
+        { "q": "\"Kitob\" so'zi qaysi so'z turkumiga kiradi?", "options": ["Fe'l", "Ot", "Sifat", "Ravish"], "correct": 1 },
+        { "q": "Qaysi so'z sifat hisoblanadi?", "options": ["yugurmoq", "chiroyli", "tez-tez", "uch"], "correct": 1 },
+        { "q": "\"O'tkan kunlar\" romanining muallifi kim?", "options": ["Abdulla Qodiriy", "Cho'lpon", "Oybek", "G'afur G'ulom"], "correct": 0 },
+        { "q": "Gapning bosh bo'laklarini ko'rsating.", "options": ["Ega va kesim", "To'ldiruvchi va aniqlovchi", "Hol va ega", "Kesim va hol"], "correct": 0 },
+        { "q": "Qaysi so'z fe'l hisoblanadi?", "options": ["daftar", "yashil", "o'qimoq", "ko'p"], "correct": 2 }
+      ]
+    },
+    {
+      "id": "bio-1", "subjectId": "biologiya-kimyo", "title": "Hujayra va moddalar", "durationMin": 10, "level": "O'rta",
+      "questions": [
+        { "q": "Suvning kimyoviy formulasi qaysi?", "options": ["H₂O", "CO₂", "O₂", "NaCl"], "correct": 0 },
+        { "q": "Hujayraning \"energiya stansiyasi\" deb qaysi organoid ataladi?", "options": ["Yadro", "Mitoxondriya", "Ribosoma", "Lizosoma"], "correct": 1 },
+        { "q": "Fotosintez jarayonida o'simlik qaysi gazni yutadi?", "options": ["Kislorod", "Azot", "Karbonat angidrid", "Vodorod"], "correct": 2 },
+        { "q": "Davriy jadvalda kislorodning kimyoviy belgisi qaysi?", "options": ["K", "O", "Ox", "Kr"], "correct": 1 },
+        { "q": "Inson yuragi nechta kameradan iborat?", "options": ["2", "3", "4", "5"], "correct": 2 }
+      ]
+    },
+    {
+      "id": "eng-1", "subjectId": "ingliz-tili", "title": "Grammar Basics", "durationMin": 10, "level": "Beginner",
+      "questions": [
+        { "q": "She ___ to school every day.", "options": ["go", "goes", "going", "gone"], "correct": 1 },
+        { "q": "What is the plural of \"child\"?", "options": ["childs", "children", "childes", "childrens"], "correct": 1 },
+        { "q": "Past simple form of \"write\":", "options": ["writed", "wrote", "written", "writes"], "correct": 1 },
+        { "q": "The opposite of \"expensive\" is:", "options": ["cheap", "costly", "rich", "high"], "correct": 0 },
+        { "q": "I have lived here ___ 2020.", "options": ["for", "since", "from", "at"], "correct": 1 }
+      ]
+    }
+  ],
+  "guides": [
+    { "id": "g-mat", "subjectId": "matematika", "title": "Algebra: formulalar to'plami", "description": "Asosiy formulalar, tenglamalar va misollar yechimi", "pages": 0, "url": "" },
+    { "id": "g-tar", "subjectId": "tarix", "title": "O'zbekiston tarixi: muhim sanalar", "description": "Eng muhim tarixiy voqealar xronologiyasi", "pages": 0, "url": "" },
+    { "id": "g-ona", "subjectId": "ona-tili", "title": "Ona tili: imlo qoidalari", "description": "Lotin yozuvidagi imlo qoidalari va mashqlar", "pages": 0, "url": "" },
+    { "id": "g-bio", "subjectId": "biologiya-kimyo", "title": "Biologiya va kimyo: qisqa konspekt", "description": "Hujayra tuzilishi va kimyoviy elementlar", "pages": 0, "url": "" },
+    { "id": "g-eng", "subjectId": "ingliz-tili", "title": "English Grammar: Tenses", "description": "Barcha zamonlar jadvali va misollar", "pages": 0, "url": "" }
+  ],
+  "stats": { "attempts": 0, "students": [] }
+}

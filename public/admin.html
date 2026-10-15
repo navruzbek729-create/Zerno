@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ZERNO Admin</title>
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<script>tailwind.config = { theme: { extend: { fontFamily: { display: ['"Space Grotesk"', 'Inter', 'sans-serif'], sans: ['Inter', 'system-ui', 'sans-serif'] } } } };</script>
+<style>
+  :root { color-scheme: dark; }
+  body { background: #080911; color: #f4f4fb; font-family: Inter, system-ui, sans-serif; }
+  body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background: radial-gradient(40vw 40vw at 0% 0%, rgba(124,58,237,.35), transparent 60%), radial-gradient(40vw 40vw at 100% 30%, rgba(8,145,178,.28), transparent 60%); }
+  .glass { background: linear-gradient(155deg, rgba(255,255,255,.09), rgba(255,255,255,.03)); backdrop-filter: blur(35px); -webkit-backdrop-filter: blur(35px); border: 1px solid rgba(255,255,255,.12); box-shadow: inset 0 1px 0 rgba(255,255,255,.15); }
+  .inp { width: 100%; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 10px 14px; outline: none; font-size: 14px; color: #fff; transition: border-color .2s, background .2s; }
+  .inp:focus { border-color: rgba(34,211,238,.7); background: rgba(255,255,255,.08); }
+  select.inp option { background: #12142a; }
+  .btn { border-radius: 12px; height: 40px; padding: 0 16px; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: filter .2s, background .2s; }
+  .btn-p { background: linear-gradient(120deg, #8b5cf6, #0891b2); box-shadow: 0 8px 26px -8px rgba(139,92,246,.8); }
+  .btn-p:hover { filter: brightness(1.12); }
+  .btn-g { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); }
+  .btn-g:hover { background: rgba(255,255,255,.12); }
+  .btn-d { background: rgba(244,63,94,.15); border: 1px solid rgba(244,63,94,.35); color: #fda4af; }
+  .btn-d:hover { background: rgba(244,63,94,.28); }
+  .tab[aria-selected="true"] { background: #fff; color: #080911; }
+  label > span { display: block; font-size: 12px; color: rgba(255,255,255,.55); margin-bottom: 6px; }
+  :focus-visible { outline: 2px solid #22d3ee; outline-offset: 2px; }
+</style>
+</head>
+<body class="min-h-screen">
+<!-- Kirish -->
+<section id="login" class="min-h-screen grid place-items-center p-4">
+  <form id="loginForm" class="glass rounded-3xl p-8 w-full max-w-sm">
+    <img src="assets/logo.webp" alt="" class="w-14 h-14 rounded-2xl shadow-[0_0_30px_rgba(168,85,247,.6)]">
+    <h1 class="font-display text-2xl font-bold mt-5">ZERNO<span class="text-cyan-300">.</span> Admin</h1>
+    <p class="text-sm text-white/50 mt-1">Kirish uchun admin parolini kiriting.</p>
+    <label class="block mt-6"><span>Parol (ADMIN_TOKEN)</span><input id="pwd" type="password" class="inp" autocomplete="current-password" required></label>
+    <p id="loginErr" class="text-sm text-rose-300 mt-3 hidden"></p>
+    <button class="btn btn-p w-full mt-5">Kirish</button>
+    <a href="./" class="block text-center text-sm text-white/45 hover:text-white mt-4">← Saytga qaytish</a>
+  </form>
+</section>
+
+<!-- Panel -->
+<section id="app" class="hidden max-w-6xl mx-auto px-4 py-6">
+  <header class="glass rounded-2xl px-4 h-16 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <img src="assets/logo.webp" alt="" class="w-9 h-9 rounded-xl">
+      <b class="font-display text-lg">ZERNO<span class="text-cyan-300">.</span> Admin</b>
+    </div>
+    <div class="flex gap-2">
+      <a href="./" target="_blank" class="btn btn-g">Saytni ochish</a>
+      <button id="logout" class="btn btn-g">Chiqish</button>
+    </div>
+  </header>
+
+  <nav class="flex flex-wrap gap-2 mt-5" role="tablist">
+    <button class="tab btn btn-g" data-tab="tests" aria-selected="true">Testlar</button>
+    <button class="tab btn btn-g" data-tab="subjects" aria-selected="false">Fanlar</button>
+    <button class="tab btn btn-g" data-tab="guides" aria-selected="false">Qo'llanmalar</button>
+    <button class="tab btn btn-g" data-tab="import" aria-selected="false">Import / Eksport</button>
+  </nav>
+
+  <div id="view" class="mt-5"></div>
+</section>
+
+<div id="toasts" class="fixed bottom-4 right-4 left-4 sm:left-auto z-50 flex flex-col gap-2 sm:items-end"></div>
+
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const ICONS = ['calc', 'landmark', 'pen', 'flask', 'globe', 'atom', 'book', 'code', 'music', 'map'];
+const ICON_NAMES = { calc: 'Kalkulyator', landmark: 'Bino (tarix)', pen: 'Qalam', flask: 'Kolba', globe: 'Globus', atom: 'Atom', book: 'Kitob', code: 'Kod', music: 'Musiqa', map: 'Xarita' };
+const COLORS = ['violet', 'amber', 'cyan', 'emerald', 'rose', 'sky', 'fuchsia', 'lime'];
+let token = sessionStorage.getItem('zerno_admin') || '';
+let data = { subjects: [], tests: [], guides: [] };
+let tab = 'tests';
+
+function toast(msg, ok = true) {
+  const el = document.createElement('div');
+  el.className = 'glass rounded-xl px-4 py-3 text-sm flex items-center gap-3';
+  el.innerHTML = `<span class="w-2 h-2 rounded-full" style="background:${ok ? '#6ee7b7' : '#fb7185'}"></span>${esc(msg)}`;
+  $('#toasts').appendChild(el); setTimeout(() => el.remove(), 3500);
+}
+async function api(path, opts = {}) {
+  const headers = { 'x-admin-token': token, ...(opts.headers || {}) };
+  if (opts.json !== undefined) { headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(opts.json); }
+  const r = await fetch('api/' + path, { ...opts, headers, cache: 'no-store' });
+  const ct = r.headers.get('content-type') || '';
+  const body = ct.includes('json') ? await r.json() : {};
+  if (r.status === 401) { logout(); throw new Error(body.error || 'Kirish talab qilinadi'); }
+  if (!r.ok) throw new Error(body.error || 'Xatolik: ' + r.status);
+  return body;
+}
+async function reload() { data = await api('data'); render(); }
+
+/* ---- Kirish ---- */
+$('#loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  token = $('#pwd').value.trim();
+  try { await api('admin/check'); sessionStorage.setItem('zerno_admin', token); enter(); }
+  catch (err) { $('#loginErr').textContent = err.message; $('#loginErr').classList.remove('hidden'); }
+});
+function logout() { token = ''; sessionStorage.removeItem('zerno_admin'); $('#app').classList.add('hidden'); $('#login').classList.remove('hidden'); }
+$('#logout').addEventListener('click', logout);
+async function enter() { $('#login').classList.add('hidden'); $('#app').classList.remove('hidden'); await reload(); }
+document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => {
+  tab = b.dataset.tab; document.querySelectorAll('.tab').forEach((x) => x.setAttribute('aria-selected', String(x === b))); render();
+}));
+
+const subjName = (id) => data.subjects.find((s) => s.id === id)?.name || '—';
+const subjOptions = (sel) => data.subjects.map((s) => `<option value="${esc(s.id)}" ${s.id === sel ? 'selected' : ''}>${esc(s.name)}</option>`).join('');
+
+function render() {
+  ({ tests: renderTests, subjects: renderSubjects, guides: renderGuides, import: renderImport })[tab]();
+}
+
+/* ================= TESTLAR ================= */
+function renderTests() {
+  $('#view').innerHTML = `
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="font-display text-2xl font-bold">Testlar <span class="text-white/40 text-lg">(${data.tests.length})</span></h2>
+    <button class="btn btn-p" id="newTest" ${data.subjects.length ? '' : 'disabled title="Avval fan qo\'shing"'}>+ Yangi test</button>
+  </div>
+  <div class="glass rounded-2xl divide-y divide-white/10">
+    ${data.tests.length ? data.tests.map((t) => `
+      <div class="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div class="flex-1 min-w-0"><div class="font-semibold">${esc(t.title)}</div>
+          <div class="text-sm text-white/50">${esc(subjName(t.subjectId))} · ${t.questionCount} savol · ${t.durationMin} daq${t.level ? ' · ' + esc(t.level) : ''}</div></div>
+        <div class="flex gap-2"><button class="btn btn-g" data-edit-test="${esc(t.id)}">Tahrirlash</button><button class="btn btn-d" data-del-test="${esc(t.id)}">O'chirish</button></div>
+      </div>`).join('') : '<p class="p-6 text-white/50">Hozircha testlar yo\'q.</p>'}
+  </div>`;
+  $('#newTest').onclick = () => testEditor({ title: '', subjectId: data.subjects[0]?.id, durationMin: 10, level: '', questions: [{ q: '', options: ['', '', '', ''], correct: 0 }] });
+  $('#view').querySelectorAll('[data-edit-test]').forEach((b) => b.onclick = async () => testEditor(await api('admin/tests/' + b.dataset.editTest)));
+  $('#view').querySelectorAll('[data-del-test]').forEach((b) => b.onclick = () => confirmDelete(b, async () => { await api('admin/tests/' + b.dataset.delTest, { method: 'DELETE' }); toast('Test o\'chirildi'); reload(); }));
+}
+
+function testEditor(t) {
+  const isNew = !t.id;
+  const draw = () => {
+    $('#view').innerHTML = `
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-display text-2xl font-bold">${isNew ? 'Yangi test' : 'Testni tahrirlash'}</h2>
+      <button class="btn btn-g" id="back">← Ortga</button>
+    </div>
+    <div class="glass rounded-2xl p-5 grid sm:grid-cols-4 gap-4">
+      <label class="sm:col-span-2"><span>Test nomi</span><input class="inp" id="tTitle" value="${esc(t.title)}"></label>
+      <label><span>Fan</span><select class="inp" id="tSubj">${subjOptions(t.subjectId)}</select></label>
+      <label><span>Vaqt (daqiqa)</span><input class="inp" id="tDur" type="number" min="1" max="180" value="${t.durationMin}"></label>
+      <label class="sm:col-span-2"><span>Daraja (ixtiyoriy)</span><input class="inp" id="tLevel" value="${esc(t.level || '')}" placeholder="Boshlang'ich, O'rta, Yuqori..."></label>
+    </div>
+    <div id="qList" class="mt-4 space-y-3">
+      ${t.questions.map((q, i) => `
+      <div class="glass rounded-2xl p-5" data-q="${i}">
+        <div class="flex items-center justify-between mb-3"><b class="text-sm text-white/70">${i + 1}-savol</b>
+          <button class="btn btn-d h-8 px-3 text-xs" data-rmq="${i}" ${t.questions.length < 2 ? 'disabled' : ''}>Savolni o'chirish</button></div>
+        <textarea class="inp" rows="2" data-qtext="${i}" placeholder="Savol matni">${esc(q.q)}</textarea>
+        <div class="grid sm:grid-cols-2 gap-2 mt-3">
+          ${q.options.map((o, j) => `
+            <div class="flex items-center gap-2">
+              <input type="radio" name="c${i}" data-correct="${i}:${j}" ${q.correct === j ? 'checked' : ''} title="To'g'ri javob" class="w-4 h-4 accent-emerald-400 shrink-0">
+              <span class="text-white/50 text-sm w-4">${'ABCDEF'[j]}</span>
+              <input class="inp" data-opt="${i}:${j}" value="${esc(o)}" placeholder="Variant ${'ABCDEF'[j]}">
+              ${q.options.length > 2 ? `<button class="text-white/40 hover:text-rose-300 px-1" data-rmo="${i}:${j}" title="Variantni o'chirish">✕</button>` : ''}
+            </div>`).join('')}
+        </div>
+        ${q.options.length < 6 ? `<button class="text-sm text-cyan-300 mt-3" data-addo="${i}">+ Variant qo'shish</button>` : ''}
+        <p class="text-xs text-white/40 mt-2">To'g'ri javobni chapdagi doiracha bilan belgilang.</p>
+      </div>`).join('')}
+    </div>
+    <div class="flex flex-wrap gap-2 mt-4">
+      <button class="btn btn-g" id="addQ">+ Savol qo'shish</button>
+      <button class="btn btn-p" id="saveT">Saqlash</button>
+    </div>`;
+    const sync = () => {
+      t.title = $('#tTitle').value; t.subjectId = $('#tSubj').value; t.durationMin = Number($('#tDur').value); t.level = $('#tLevel').value;
+      document.querySelectorAll('[data-qtext]').forEach((el) => t.questions[el.dataset.qtext].q = el.value);
+      document.querySelectorAll('[data-opt]').forEach((el) => { const [i, j] = el.dataset.opt.split(':').map(Number); t.questions[i].options[j] = el.value; });
+      document.querySelectorAll('[data-correct]:checked').forEach((el) => { const [i, j] = el.dataset.correct.split(':').map(Number); t.questions[i].correct = j; });
+    };
+    $('#back').onclick = () => render();
+    $('#addQ').onclick = () => { sync(); t.questions.push({ q: '', options: ['', '', '', ''], correct: 0 }); draw(); };
+    $('#view').querySelectorAll('[data-rmq]').forEach((b) => b.onclick = () => { sync(); t.questions.splice(Number(b.dataset.rmq), 1); draw(); });
+    $('#view').querySelectorAll('[data-addo]').forEach((b) => b.onclick = () => { sync(); t.questions[b.dataset.addo].options.push(''); draw(); });
+    $('#view').querySelectorAll('[data-rmo]').forEach((b) => b.onclick = () => {
+      sync(); const [i, j] = b.dataset.rmo.split(':').map(Number); const q = t.questions[i];
+      q.options.splice(j, 1); if (q.correct >= q.options.length || q.correct === j) q.correct = 0; else if (q.correct > j) q.correct--; draw();
+    });
+    $('#saveT').onclick = async () => {
+      sync();
+      try {
+        await api(isNew ? 'admin/tests' : 'admin/tests/' + t.id, { method: isNew ? 'POST' : 'PUT', json: t });
+        toast('Test saqlandi'); await reload();
+      } catch (e) { toast(e.message, false); }
+    };
+  };
+  draw();
+}
+
+/* ================= FANLAR ================= */
+function renderSubjects(edit) {
+  const s = edit || { name: '', description: '', icon: 'book', color: 'violet', order: data.subjects.length + 1 };
+  $('#view').innerHTML = `
+  <div class="grid lg:grid-cols-[1fr_380px] gap-5">
+    <div>
+      <h2 class="font-display text-2xl font-bold mb-4">Fanlar <span class="text-white/40 text-lg">(${data.subjects.length})</span></h2>
+      <div class="glass rounded-2xl divide-y divide-white/10">
+        ${data.subjects.length ? data.subjects.map((x) => `
+        <div class="p-4 flex items-center gap-3">
+          <div class="flex-1 min-w-0"><div class="font-semibold">${esc(x.name)}</div><div class="text-sm text-white/50 truncate">${esc(x.description)} · ${x.icon} · ${x.color} · tartib ${x.order}</div></div>
+          <button class="btn btn-g" data-edit-s="${esc(x.id)}">Tahrirlash</button><button class="btn btn-d" data-del-s="${esc(x.id)}">O'chirish</button>
+        </div>`).join('') : '<p class="p-6 text-white/50">Fanlar yo\'q.</p>'}
+      </div>
+    </div>
+    <form id="sForm" class="glass rounded-2xl p-5 space-y-4 h-fit">
+      <h3 class="font-display text-lg font-semibold">${s.id ? 'Fanni tahrirlash' : 'Yangi fan'}</h3>
+      <label class="block"><span>Nomi</span><input class="inp" name="name" value="${esc(s.name)}" required></label>
+      <label class="block"><span>Qisqa tavsif</span><input class="inp" name="description" value="${esc(s.description)}"></label>
+      <div class="grid grid-cols-2 gap-3">
+        <label><span>Ikonka</span><select class="inp" name="icon">${ICONS.map((i) => `<option value="${i}" ${i === s.icon ? 'selected' : ''}>${ICON_NAMES[i]}</option>`).join('')}</select></label>
+        <label><span>Rang</span><select class="inp" name="color">${COLORS.map((c) => `<option ${c === s.color ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+      </div>
+      <label class="block"><span>Tartib raqami</span><input class="inp" type="number" name="order" value="${s.order}"></label>
+      <div class="flex gap-2"><button class="btn btn-p flex-1">Saqlash</button>${s.id ? '<button type="button" class="btn btn-g" id="sCancel">Bekor</button>' : ''}</div>
+    </form>
+  </div>`;
+  $('#sForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const body = Object.fromEntries(new FormData(e.target));
+    try { await api(s.id ? 'admin/subjects/' + s.id : 'admin/subjects', { method: s.id ? 'PUT' : 'POST', json: body }); toast('Fan saqlandi'); await reload(); }
+    catch (err) { toast(err.message, false); }
+  };
+  $('#sCancel') && ($('#sCancel').onclick = () => renderSubjects());
+  $('#view').querySelectorAll('[data-edit-s]').forEach((b) => b.onclick = () => renderSubjects(data.subjects.find((x) => x.id === b.dataset.editS)));
+  $('#view').querySelectorAll('[data-del-s]').forEach((b) => b.onclick = () => confirmDelete(b, async () => {
+    try { await api('admin/subjects/' + b.dataset.delS, { method: 'DELETE' }); toast('Fan o\'chirildi'); reload(); } catch (e) { toast(e.message, false); }
+  }));
+}
+
+/* ================= QO'LLANMALAR ================= */
+function renderGuides(edit) {
+  const g = edit || { title: '', description: '', subjectId: data.subjects[0]?.id || '', pages: 0, url: '' };
+  $('#view').innerHTML = `
+  <div class="grid lg:grid-cols-[1fr_380px] gap-5">
+    <div>
+      <h2 class="font-display text-2xl font-bold mb-4">Qo'llanmalar <span class="text-white/40 text-lg">(${data.guides.length})</span></h2>
+      <div class="glass rounded-2xl divide-y divide-white/10">
+        ${data.guides.length ? data.guides.map((x) => `
+        <div class="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div class="flex-1 min-w-0"><div class="font-semibold">${esc(x.title)}</div>
+            <div class="text-sm text-white/50 truncate">${esc(subjName(x.subjectId))} · ${x.url ? `<a class="text-cyan-300" href="${esc(x.url)}" target="_blank">fayl</a>` : '<span class="text-amber-200/80">fayl yo\'q</span>'}</div></div>
+          <div class="flex gap-2"><button class="btn btn-g" data-edit-g="${esc(x.id)}">Tahrirlash</button><button class="btn btn-d" data-del-g="${esc(x.id)}">O'chirish</button></div>
+        </div>`).join('') : '<p class="p-6 text-white/50">Qo\'llanmalar yo\'q.</p>'}
+      </div>
+    </div>
+    <form id="gForm" class="glass rounded-2xl p-5 space-y-4 h-fit">
+      <h3 class="font-display text-lg font-semibold">${g.id ? 'Qo\'llanmani tahrirlash' : 'Yangi qo\'llanma'}</h3>
+      <label class="block"><span>Nomi</span><input class="inp" name="title" value="${esc(g.title)}" required></label>
+      <label class="block"><span>Tavsif</span><input class="inp" name="description" value="${esc(g.description)}"></label>
+      <div class="grid grid-cols-2 gap-3">
+        <label><span>Fan</span><select class="inp" name="subjectId"><option value="">—</option>${subjOptions(g.subjectId)}</select></label>
+        <label><span>Betlar soni</span><input class="inp" type="number" min="0" name="pages" value="${g.pages || 0}"></label>
+      </div>
+      <label class="block"><span>PDF fayl yuklash (50 MB gacha)</span><input class="inp" type="file" name="file" accept="application/pdf,.pdf"></label>
+      <label class="block"><span>yoki tashqi havola (https://...)</span><input class="inp" name="url" value="${esc(g.url)}" placeholder="https://"></label>
+      <div class="flex gap-2"><button class="btn btn-p flex-1" id="gSave">Saqlash</button>${g.id ? '<button type="button" class="btn btn-g" id="gCancel">Bekor</button>' : ''}</div>
+    </form>
+  </div>`;
+  $('#gForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    if (!fd.get('file')?.size) fd.delete('file');
+    $('#gSave').disabled = true; $('#gSave').textContent = 'Yuklanmoqda...';
+    try { await api(g.id ? 'admin/guides/' + g.id : 'admin/guides', { method: g.id ? 'PUT' : 'POST', body: fd }); toast('Qo\'llanma saqlandi'); await reload(); }
+    catch (err) { toast(err.message, false); $('#gSave').disabled = false; $('#gSave').textContent = 'Saqlash'; }
+  };
+  $('#gCancel') && ($('#gCancel').onclick = () => renderGuides());
+  $('#view').querySelectorAll('[data-edit-g]').forEach((b) => b.onclick = () => renderGuides(data.guides.find((x) => x.id === b.dataset.editG)));
+  $('#view').querySelectorAll('[data-del-g]').forEach((b) => b.onclick = () => confirmDelete(b, async () => { await api('admin/guides/' + b.dataset.delG, { method: 'DELETE' }); toast('Qo\'llanma o\'chirildi'); reload(); }));
+}
+
+/* ================= IMPORT / EKSPORT ================= */
+const SAMPLE = {
+  subjects: [{ id: 'fizika', name: 'Fizika', description: 'Mexanika va elektr', icon: 'atom', color: 'sky', order: 6 }],
+  tests: [{ id: 'fiz-1', subjectId: 'fizika', title: 'Mexanika asoslari', durationMin: 15, level: "O'rta",
+    questions: [{ q: 'Tezlikning SI birligi?', options: ['m/s', 'km', 'N', 'J'], correct: 0 }] }],
+  guides: [{ id: 'g-fiz', subjectId: 'fizika', title: 'Fizika formulalari', description: 'Asosiy formulalar', pages: 12, url: 'https://example.com/fizika.pdf' }],
+};
+function renderImport() {
+  $('#view').innerHTML = `
+  <div class="grid lg:grid-cols-2 gap-5">
+    <div class="glass rounded-2xl p-5">
+      <h2 class="font-display text-xl font-bold">Ommaviy import (JSON)</h2>
+      <p class="text-sm text-white/55 mt-1">Ko'p test va qo'llanmalarni bir yo'la qo'shish uchun. Bir xil <code>id</code> bo'lsa yangilanadi, yangi bo'lsa qo'shiladi. <code>correct</code> — to'g'ri variant raqami (0 dan boshlanadi).</p>
+      <input type="file" id="impFile" accept=".json,application/json" class="inp mt-4">
+      <textarea id="impText" rows="14" class="inp mt-3 font-mono text-xs" placeholder="JSON shu yerga..."></textarea>
+      <div class="flex flex-wrap gap-2 mt-3"><button class="btn btn-g" id="impSample">Namunani ko'rsatish</button><button class="btn btn-p" id="impGo">Import qilish</button></div>
+      <pre id="impRes" class="text-xs text-white/70 mt-3 whitespace-pre-wrap"></pre>
+    </div>
+    <div class="glass rounded-2xl p-5 h-fit">
+      <h2 class="font-display text-xl font-bold">Zaxira nusxa (eksport)</h2>
+      <p class="text-sm text-white/55 mt-1">Barcha ma'lumotlarni (to'g'ri javoblar bilan) JSON fayl sifatida yuklab oling. Muntazam zaxira qilib turing.</p>
+      <button class="btn btn-p mt-4" id="expGo">Yuklab olish</button>
+    </div>
+  </div>`;
+  $('#impFile').onchange = async (e) => { const f = e.target.files[0]; if (f) $('#impText').value = await f.text(); };
+  $('#impSample').onclick = () => { $('#impText').value = JSON.stringify(SAMPLE, null, 2); };
+  $('#impGo').onclick = async () => {
+    let body; try { body = JSON.parse($('#impText').value); } catch { return toast('JSON formati noto\'g\'ri', false); }
+    try {
+      const r = await api('admin/import', { method: 'POST', json: body });
+      $('#impRes').textContent = `Qo'shildi/yangilandi: ${r.counts.subjects} fan, ${r.counts.tests} test, ${r.counts.guides} qo'llanma` + (r.errors.length ? '\n\nXatolar:\n' + r.errors.join('\n') : '');
+      toast('Import yakunlandi'); data = await api('data');
+    } catch (e) { toast(e.message, false); }
+  };
+  $('#expGo').onclick = async () => {
+    try {
+      const r = await fetch('api/admin/export', { headers: { 'x-admin-token': token } });
+      if (!r.ok) throw new Error('Eksport xatosi');
+      const a = document.createElement('a'); a.href = URL.createObjectURL(await r.blob());
+      a.download = `zerno-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(a.href);
+    } catch (e) { toast(e.message, false); }
+  };
+}
+
+/* O'chirishni tasdiqlash (brauzer dialogisiz) */
+function confirmDelete(btn, fn) {
+  if (btn.dataset.armed) { fn().catch((e) => toast(e.message, false)); return; }
+  btn.dataset.armed = '1'; const old = btn.textContent; btn.textContent = 'Tasdiqlash?';
+  setTimeout(() => { if (btn.isConnected) { delete btn.dataset.armed; btn.textContent = old; } }, 3000);
+}
+
+if (token) api('admin/check').then(enter).catch(() => logout());
+</script>
+</body>
+</html>
