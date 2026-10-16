@@ -1,6 +1,6 @@
 /**
  * ZERNO — Free Knowledge Hub
- * Backend: Node.js + Express, ma'lumotlar data/db.json faylida saqlanadi.
+ * Backend: Node.js + Express. Ma'lumotlar MongoDB'da (MONGODB_URI) yoki data/db.json faylida saqlanadi.
  *
  * Ishga tushirish:
  *   npm install
@@ -9,49 +9,131 @@
  */
 const express = require('express');
 const multer = require('multer');
+const ExcelJS = require('exceljs');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 
 const PORT = Number(process.env.PORT) || 3000;
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'zerno2026'; // standart admin paroli
 const ROOT = __dirname;
 const DATA_DIR = path.join(ROOT, 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 const SEED_FILE = path.join(DATA_DIR, 'seed.json');
 const UPLOAD_DIR = path.join(ROOT, 'uploads');
 
-if (!ADMIN_TOKEN) {
-  console.warn('\n⚠️  ADMIN_TOKEN o\'rnatilmagan — admin panel o\'chirilgan. Uni yoqish uchun ADMIN_TOKEN muhit o\'zgaruvchisini bering.\n');
+if (!process.env.ADMIN_TOKEN) {
+  console.warn('\n⚠️  ADMIN_TOKEN berilmagan — standart admin paroli ishlatilmoqda: zerno2026\n');
 }
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
-/* ---------------- Ma'lumotlar bazasi (JSON fayl) ---------------- */
-function loadDb() {
-  if (!fs.existsSync(DB_FILE)) {
-    const seed = fs.existsSync(SEED_FILE)
-      ? JSON.parse(fs.readFileSync(SEED_FILE, 'utf8'))
-      : { subjects: [], tests: [], guides: [], stats: { attempts: 0, students: [] } };
-    fs.writeFileSync(DB_FILE, JSON.stringify(seed, null, 2));
-  }
-  const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-  db.subjects ||= []; db.tests ||= []; db.guides ||= [];
-  db.stats ||= { attempts: 0, students: [] };
-  db.stats.students ||= [];
-  return db;
+/* ---------------- Ma'lumotlar bazasi ----------------
+ * MONGODB_URI berilgan bo'lsa — MongoDB (masalan, MongoDB Atlas bepul klaster). Render kabi
+ * diski vaqtinchalik hostinglarda shart: aks holda ma'lumotlar qayta ishga tushganda o'chadi.
+ * Berilmagan bo'lsa — data/db.json fayli (VPS yoki kompyuterda).
+ * Butun ilova xotiradagi `db` obyekti bilan ishlaydi; saveDb() o'zgarishlarni saqlaydi.
+ */
+const MONGODB_URI = process.env.MONGODB_URI || '';
+const COLLS = ['subjects', 'tests', 'guides', 'participants', 'results'];
+let mongo = null;            // { client, dbm, bucket }
+const synced = {};           // MongoDB bilan oxirgi sinxron holat: coll -> Map(id -> json)
+let syncedStats = '';
+
+function normalizeDb(d) {
+  d.subjects ||= []; d.tests ||= []; d.guides ||= [];
+  d.participants ||= []; d.results ||= [];
+  d.stats ||= { attempts: 0 };
+  d.stats.attempts ||= 0;
+  delete d.stats.students;
+  return d;
 }
-let db = loadDb();
+function readSeed() {
+  return fs.existsSync(SEED_FILE)
+    ? JSON.parse(fs.readFileSync(SEED_FILE, 'utf8'))
+    : { subjects: [], tests: [], guides: [] };
+}
+function loadFileDb() {
+  if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, JSON.stringify(normalizeDb(readSeed()), null, 2));
+  return normalizeDb(JSON.parse(fs.readFileSync(DB_FILE, 'utf8')));
+}
+
+let db = null;
+async function initStorage() {
+  if (!MONGODB_URI) { db = loadFileDb(); console.log('💾 Saqlash: data/db.json fayli'); return; }
+  const { MongoClient, GridFSBucket } = require('mongodb');
+  const client = new MongoClient(MONGODB_URI, { serverSelectionTimeoutMS: 15000 });
+  await client.connect();
+  const dbm = client.db(process.env.MONGODB_DB || 'zerno');
+  mongo = { client, dbm, bucket: new GridFSBucket(dbm, { bucketName: 'pdfs' }) };
+  const meta = await dbm.collection('meta').findOne({ _id: 'stats' });
+  const counts = await Promise.all(COLLS.map((c) => dbm.collection(c).countDocuments()));
+  if (!meta && counts.every((n) => n === 0)) {
+    db = normalizeDb(readSeed());           // birinchi ishga tushish — namuna ma'lumotlar
+    COLLS.forEach((c) => { synced[c] = new Map(); });
+    await flushMongo();
+    console.log('💾 Saqlash: MongoDB (namuna ma\'lumotlar yozildi)');
+  } else {
+    db = { stats: meta?.value || { attempts: 0 } };
+    for (const c of COLLS) {
+      const docs = await dbm.collection(c).find().toArray();
+      db[c] = docs.map(({ _id, ...rest }) => rest);
+      synced[c] = new Map(db[c].map((d) => [d.id, JSON.stringify(d)]));
+    }
+    db.results.sort((a, b) => a.date.localeCompare(b.date));
+    normalizeDb(db);
+    syncedStats = JSON.stringify(db.stats);
+    console.log(`💾 Saqlash: MongoDB (${db.tests.length} test, ${db.participants.length} o'quvchi, ${db.results.length} natija)`);
+  }
+}
+
+// Faqat o'zgargan hujjatlarni yozadi, o'chirilganlarini o'chiradi
+async function flushMongo() {
+  for (const c of COLLS) {
+    const cur = new Map();
+    const ops = [];
+    for (const d of db[c]) {
+      const j = JSON.stringify(d);
+      cur.set(d.id, j);
+      if (synced[c].get(d.id) !== j) ops.push({ replaceOne: { filter: { _id: d.id }, replacement: { _id: d.id, ...d }, upsert: true } });
+    }
+    for (const id of synced[c].keys()) if (!cur.has(id)) ops.push({ deleteOne: { filter: { _id: id } } });
+    if (ops.length) await mongo.dbm.collection(c).bulkWrite(ops, { ordered: false });
+    synced[c] = cur;
+  }
+  const st = JSON.stringify(db.stats);
+  if (st !== syncedStats) {
+    await mongo.dbm.collection('meta').replaceOne({ _id: 'stats' }, { _id: 'stats', value: db.stats }, { upsert: true });
+    syncedStats = st;
+  }
+}
+
 let saveTimer = null;
+let flushing = Promise.resolve();
 function saveDb() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
+  saveTimer = setTimeout(flushNow, mongo ? 40 : 150);
+}
+function flushNow() {
+  clearTimeout(saveTimer); saveTimer = null;
+  if (!mongo) {
     const tmp = DB_FILE + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(db, null, 2));
     fs.renameSync(tmp, DB_FILE); // atomik yozish
-  }, 150);
+    return Promise.resolve();
+  }
+  flushing = flushing.then(flushMongo).catch((e) => console.error('❌ MongoDB\'ga yozishda xato:', e.message));
+  return flushing;
 }
+// Server to'xtatilganda (Render "uxlab qolganda") saqlanmagan o'zgarishlarni yozib qo'yish
+async function shutdown(sig) {
+  console.log(`${sig} — ma'lumotlar saqlanmoqda...`);
+  try { if (saveTimer) await flushNow(); else await flushing; if (mongo) await mongo.client.close(); } catch {}
+  process.exit(0);
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 /* ---------------- Yordamchilar ---------------- */
 const slug = (s) => String(s || '').toLowerCase()
@@ -67,7 +149,7 @@ function publicStats() {
     questions: db.tests.reduce((n, t) => n + t.questions.length, 0),
     guides: db.guides.length,
     subjects: db.subjects.length,
-    students: db.stats.students.length,
+    students: db.participants.length,
     attempts: db.stats.attempts,
   };
 }
@@ -138,21 +220,77 @@ app.get('/api/tests/:id', (req, res) => {
   res.json({ ...testMeta(t), questions: t.questions.map((q) => ({ q: q.q, options: q.options })) });
 });
 
-// Javoblarni tekshirish (serverda)
+/* ---- Ishtirokchilar (ism + guruh bilan ro'yxatdan o'tish) ---- */
+const normKey = (s) => str(s, 80).toLowerCase().replace(/[ʻʼ'`‘’]/g, "'").replace(/\s+/g, ' ');
+const publicParticipant = (p) => ({ id: p.id, name: p.name, group: p.group, token: p.token });
+function participantFromReq(req) {
+  const token = String(req.get('x-participant') || '');
+  return token ? db.participants.find((p) => p.token === token) : null;
+}
+
+// Ro'yxatdan o'tish. Xuddi shu ism + guruh qayta kiritilsa — o'sha ishtirokchi qaytariladi
+// (shu tarzda boshqa qurilmadan, masalan telefondan ham o'z natijalariga kira oladi).
+app.post('/api/register', (req, res) => {
+  const name = str(req.body.name, 80).replace(/\s+/g, ' ');
+  const group = str(req.body.group, 40).replace(/\s+/g, ' ');
+  if (name.length < 3) return res.status(400).json({ error: 'Ism-familiyani to\'liq kiriting' });
+  if (!group) return res.status(400).json({ error: 'Guruhni kiriting' });
+  let p = db.participants.find((x) => normKey(x.name) === normKey(name) && normKey(x.group) === normKey(group));
+  if (!p) {
+    p = { id: newId('u'), name, group, token: crypto.randomBytes(24).toString('hex'), createdAt: new Date().toISOString() };
+    db.participants.push(p); saveDb();
+  }
+  res.json(publicParticipant(p));
+});
+
+app.get('/api/me', (req, res) => {
+  const p = participantFromReq(req);
+  if (!p) return res.status(401).json({ error: 'Ro\'yxatdan o\'tilmagan' });
+  const results = db.results.filter((r) => r.participantId === p.id)
+    .map(({ answers, participantId, ...r }) => r)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  res.json({ ...publicParticipant(p), results });
+});
+
+// Javoblarni tekshirish (serverda) va natijani saqlash
 app.post('/api/tests/:id/submit', (req, res) => {
   const t = db.tests.find((x) => x.id === req.params.id);
   if (!t) return res.status(404).json({ error: 'Test topilmadi' });
-  const answers = Array.isArray(req.body.answers) ? req.body.answers : [];
+  const p = participantFromReq(req);
+  if (!p) return res.status(401).json({ error: 'Avval ism va guruhingiz bilan ro\'yxatdan o\'ting' });
+  const answers = Array.isArray(req.body.answers) ? req.body.answers.slice(0, t.questions.length) : [];
   const review = t.questions.map((q, i) => ({
     correct: q.correct,
     chosen: Number.isInteger(answers[i]) ? answers[i] : null,
   }));
   const score = review.filter((r) => r.chosen === r.correct).length;
+  const total = t.questions.length;
+  const result = {
+    id: newId('r'), participantId: p.id, testId: t.id, testTitle: t.title, subjectId: t.subjectId,
+    score, total, percent: Math.round((score / total) * 100),
+    timeSpent: Math.max(0, Math.min(Number(req.body.timeSpent) || 0, t.durationMin * 60 + 30)),
+    answers: review.map((r) => r.chosen), date: new Date().toISOString(),
+  };
+  db.results.push(result);
   db.stats.attempts += 1;
-  const cid = str(req.body.clientId, 64);
-  if (cid && !db.stats.students.includes(cid)) db.stats.students.push(cid);
   saveDb();
-  res.json({ score, total: t.questions.length, review, stats: publicStats() });
+  res.json({ score, total, review, resultId: result.id, stats: publicStats() });
+});
+
+/* ---- Sitemap (Google uchun) ---- */
+app.get('/sitemap.xml', (req, res) => {
+  const base = (process.env.SITE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
+  const urls = [
+    { loc: `${base}/`, priority: '1.0', changefreq: 'daily' },
+    ...db.subjects.map(s => ({ loc: `${base}/#fan-${s.id}`, priority: '0.9', changefreq: 'weekly' })),
+    ...db.tests.map(t => ({ loc: `${base}/#test-${t.id}`, priority: '0.8', changefreq: 'weekly' })),
+    ...db.guides.map(g => ({ loc: `${base}/#qollanma-${g.id}`, priority: '0.7', changefreq: 'monthly' })),
+  ];
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${
+    urls.map(u => `  <url><loc>${u.loc}</loc><changefreq>${u.changefreq}</changefreq><priority>${u.priority}</priority></url>`).join('\n')
+  }\n</urlset>`;
+  res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+  res.send(xml);
 });
 
 /* ---- Admin API ---- */
@@ -188,6 +326,72 @@ admin.get('/tests/:id', (req, res) => {
   res.json(t);
 });
 
+// Natijalar va ishtirokchilar
+function resultRows(q) {
+  const byId = new Map(db.participants.map((p) => [p.id, p]));
+  const subj = new Map(db.subjects.map((s) => [s.id, s.name]));
+  const group = normKey(q.group || '');
+  return db.results
+    .map((r) => {
+      const p = byId.get(r.participantId) || { name: '(o\'chirilgan)', group: '' };
+      return { id: r.id, participantId: r.participantId, name: p.name, group: p.group, testId: r.testId,
+        testTitle: r.testTitle, subject: subj.get(r.subjectId) || '', score: r.score, total: r.total,
+        percent: r.percent, timeSpent: r.timeSpent, date: r.date };
+    })
+    .filter((r) => (!group || normKey(r.group) === group) && (!q.testId || r.testId === q.testId))
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+admin.get('/results', (req, res) => {
+  const groups = [...new Set(db.participants.map((p) => p.group))].sort((a, b) => a.localeCompare(b));
+  res.json({ results: resultRows(req.query), groups, participants: db.participants.length });
+});
+// Excel (.xlsx) — kompyuterda ham, telefonda ham ochiladi
+admin.get('/results.xlsx', async (req, res) => {
+  try {
+    const safe = (v) => { const s = String(v ?? ''); return /^[=+\-@]/.test(s) ? "'" + s : s; }; // formula himoyasi
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'ZERNO';
+    const ws = wb.addWorksheet('Natijalar', { views: [{ state: 'frozen', ySplit: 1 }] });
+    ws.columns = [
+      { header: 'Ism-familiya', key: 'name', width: 28 },
+      { header: 'Guruh', key: 'group', width: 14 },
+      { header: 'Fan', key: 'subject', width: 18 },
+      { header: 'Test', key: 'test', width: 28 },
+      { header: "To'g'ri", key: 'score', width: 9 },
+      { header: 'Jami', key: 'total', width: 8 },
+      { header: 'Foiz', key: 'percent', width: 8 },
+      { header: 'Vaqt (daq:son)', key: 'time', width: 14 },
+      { header: 'Sana', key: 'date', width: 20 },
+    ];
+    for (const r of resultRows(req.query)) {
+      ws.addRow({
+        name: safe(r.name), group: safe(r.group), subject: safe(r.subject), test: safe(r.testTitle),
+        score: r.score, total: r.total, percent: r.percent / 100,
+        time: `${Math.floor(r.timeSpent / 60)}:${String(r.timeSpent % 60).padStart(2, '0')}`,
+        date: new Date(r.date).toLocaleString('ru-RU', { timeZone: 'Asia/Tashkent' }),
+      });
+    }
+    ws.getColumn('percent').numFmt = '0%';
+    ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF6D28D9' } };
+    ws.autoFilter = { from: 'A1', to: 'I1' };
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="zerno-natijalar-${new Date().toISOString().slice(0, 10)}.xlsx"`);
+    await wb.xlsx.write(res);
+    res.end();
+  } catch (e) {
+    if (!res.headersSent) res.status(500).json({ error: 'Excel yaratib bo\'lmadi' });
+  }
+});
+admin.delete('/results/:id', wrap((req, res) => {
+  db.results = db.results.filter((r) => r.id !== req.params.id); saveDb(); res.json({ ok: true });
+}));
+admin.delete('/participants/:id', wrap((req, res) => {
+  db.participants = db.participants.filter((p) => p.id !== req.params.id);
+  db.results = db.results.filter((r) => r.participantId !== req.params.id);
+  saveDb(); res.json({ ok: true });
+}));
+
 // Fanlar
 admin.post('/subjects', wrap((req, res) => {
   const s = validateSubject(req.body);
@@ -220,10 +424,12 @@ admin.delete('/tests/:id', wrap((req, res) => {
 }));
 
 // Qo'llanmalar (PDF yuklash bilan)
+const pdfName = (orig) => `${Date.now()}-${slug(path.parse(orig).name) || 'fayl'}.pdf`;
 const upload = multer({
-  storage: multer.diskStorage({
+  // MongoDB rejimida fayl xotiraga olinadi va GridFS'ga yoziladi (Render diski vaqtinchalik)
+  storage: MONGODB_URI ? multer.memoryStorage() : multer.diskStorage({
     destination: UPLOAD_DIR,
-    filename: (req, file, cb) => cb(null, `${Date.now()}-${slug(path.parse(file.originalname).name) || 'fayl'}.pdf`),
+    filename: (req, file, cb) => cb(null, pdfName(file.originalname)),
   }),
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
@@ -231,10 +437,22 @@ const upload = multer({
     cb(ok ? null : new Error('Faqat PDF fayl yuklash mumkin'), ok);
   },
 });
+function gridPut(buffer, filename) {
+  return new Promise((resolve, reject) => {
+    const up = mongo.bucket.openUploadStream(filename, { metadata: { contentType: 'application/pdf' } });
+    up.once('finish', resolve).once('error', reject);
+    up.end(buffer);
+  });
+}
 function removeUpload(url) {
-  if (url && url.startsWith('/uploads/')) {
-    const f = path.join(UPLOAD_DIR, path.basename(url));
-    fs.promises.unlink(f).catch(() => {});
+  if (!url || !url.startsWith('/uploads/')) return;
+  const name = path.basename(url);
+  if (mongo) {
+    mongo.bucket.find({ filename: name }).toArray()
+      .then((files) => Promise.all(files.map((f) => mongo.bucket.delete(f._id))))
+      .catch(() => {});
+  } else {
+    fs.promises.unlink(path.join(UPLOAD_DIR, name)).catch(() => {});
   }
 }
 function guideFromBody(b, file, prev = {}) {
@@ -255,8 +473,18 @@ function guideFromBody(b, file, prev = {}) {
     pages: Math.max(Number(b.pages) || 0, 0), url, size,
   };
 }
-const handleUpload = (req, res, next) => upload.single('file')(req, res, (err) => {
+const handleUpload = (req, res, next) => upload.single('file')(req, res, async (err) => {
   if (err) return res.status(400).json({ error: err.code === 'LIMIT_FILE_SIZE' ? 'Fayl 50 MB dan katta' : err.message });
+  if (mongo && req.file) {
+    try {
+      if (!str(req.body.title)) return res.status(400).json({ error: 'Qo\'llanma nomi kiritilmagan' });
+      req.file.filename = pdfName(req.file.originalname);
+      await gridPut(req.file.buffer, req.file.filename);
+      req.file.buffer = null;
+    } catch (e) {
+      return res.status(500).json({ error: 'Faylni bazaga saqlab bo\'lmadi: ' + e.message });
+    }
+  }
   next();
 });
 admin.post('/guides', handleUpload, wrap((req, res) => {
@@ -313,29 +541,33 @@ admin.post('/import', wrap((req, res) => {
 app.use('/api/admin', admin);
 app.use('/api', (req, res) => res.status(404).json({ error: 'Topilmadi' }));
 
-/* ---- Sitemap (Google uchun) ---- */
-app.get('/sitemap.xml', (req, res) => {
-  const base = (process.env.SITE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
-  const urls = [
-    { loc: `${base}/`, priority: '1.0', changefreq: 'daily' },
-    ...db.subjects.map(s => ({ loc: `${base}/#fan-${s.id}`, priority: '0.9', changefreq: 'weekly' })),
-    ...db.tests.map(t => ({ loc: `${base}/#test-${t.id}`, priority: '0.8', changefreq: 'weekly' })),
-    ...db.guides.map(g => ({ loc: `${base}/#qollanma-${g.id}`, priority: '0.7', changefreq: 'monthly' })),
-  ];
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${
-    urls.map(u => `  <url><loc>${u.loc}</loc><changefreq>${u.changefreq}</changefreq><priority>${u.priority}</priority></url>`).join('\n')
-  }\n</urlset>`;
-  res.setHeader('Content-Type', 'application/xml; charset=utf-8');
-  res.send(xml);
-});
-
 /* ---- Statik fayllar ---- */
+app.get('/uploads/:name', async (req, res, next) => {
+  if (!mongo) return next();
+  try {
+    const name = path.basename(req.params.name);
+    const [file] = await mongo.bucket.find({ filename: name }).limit(1).toArray();
+    if (!file) return res.status(404).send('Fayl topilmadi');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Length', file.length);
+    res.setHeader('Cache-Control', 'public, max-age=604800');
+    mongo.bucket.openDownloadStream(file._id).on('error', () => res.end()).pipe(res);
+  } catch (e) { next(e); }
+});
 app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '7d', setHeaders: (res) => res.setHeader('Content-Type', 'application/pdf') }));
 app.use(express.static(path.join(ROOT, 'public'), { extensions: ['html'], maxAge: '1h' }));
 app.get('/admin', (req, res) => res.sendFile(path.join(ROOT, 'public', 'admin.html')));
 app.use((req, res) => res.status(404).sendFile(path.join(ROOT, 'public', 'index.html')));
 
-app.listen(PORT, () => {
-  console.log(`✅ ZERNO ishga tushdi: http://localhost:${PORT}`);
-  console.log(`   Admin panel:        http://localhost:${PORT}/admin`);
-});
+initStorage()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`✅ ZERNO ishga tushdi: http://localhost:${PORT}`);
+      console.log(`   Admin panel:        http://localhost:${PORT}/admin`);
+    });
+  })
+  .catch((e) => {
+    console.error('❌ Ma\'lumotlar bazasiga ulanib bo\'lmadi:', e.message);
+    console.error('   MONGODB_URI to\'g\'riligini va Atlas → Network Access\'da 0.0.0.0/0 ruxsat etilganini tekshiring.');
+    process.exit(1);
+  });

@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ZERNO — Free Knowledge Hub</title>
 <meta name="description" content="ZERNO — bepul onlayn testlar va o'quv qo'llanmalari platformasi. Matematika, Tarix, Ona tili, Biologiya, Kimyo va Ingliz tili. 0 so'm, 100% bepul.">
-<meta name="google-site-verification" content="Y-fzMJC17BRPd3mAvxT6H8Jv5ra_7xatpJ1TKwpRnFQ" />
 <meta name="theme-color" content="#080911">
+<meta name="google-site-verification" content="Y-fzMJC17BRPd3mAvxT6H8Jv5ra_7xatpJ1TKwpRnFQ" />
 <meta property="og:title" content="ZERNO — Free Knowledge Hub">
 <meta property="og:description" content="Bepul onlayn testlar va o'quv qo'llanmalari. 0 so'm — 100% bepul.">
 <meta property="og:image" content="assets/og-cover.jpg">
@@ -207,7 +207,12 @@
         <span class="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-emerald-400/10 text-emerald-300 border border-emerald-300/20">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-300 shadow-[0_0_8px_#6ee7b7]"></span>100% bepul
         </span>
-        <a href="#subjects" class="btn-primary hidden sm:inline-flex items-center rounded-xl px-4 h-10 text-sm font-semibold">Boshlash</a>
+        <button id="userBtn" class="btn-glass inline-flex items-center gap-2 rounded-xl pl-2 pr-3 h-10 text-sm font-semibold max-w-[11rem]">
+          <span id="userAvatar" class="w-7 h-7 rounded-lg grid place-items-center bg-gradient-to-br from-violet-500 to-cyan-500 text-xs font-bold shrink-0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+          </span>
+          <span id="userLabel" class="truncate">Kirish</span>
+        </button>
         <button id="menuBtn" class="md:hidden btn-glass w-10 h-10 rounded-xl grid place-items-center" aria-label="Menyuni ochish" aria-expanded="false" aria-controls="mobileMenu">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
         </button>
@@ -470,21 +475,180 @@ async function getTest(id) {
   return { ...t, questions: t.questions.map((q) => ({ q: q.q, options: q.options })) };
 }
 
-async function submitTest(id, answers) {
+async function submitTest(id, answers, timeSpent) {
   if (state.mode === 'live') {
     const res = await fetchJson(`api/tests/${encodeURIComponent(id)}/submit`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ answers, clientId: clientId() }),
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-participant': state.user?.token || '' },
+      body: JSON.stringify({ answers, timeSpent }),
     });
     if (res.stats) { state.data.stats = res.stats; renderStats(false); }
     return res;
   }
   const t = DEMO_DATA.tests.find((x) => x.id === id);
   const review = t.questions.map((q, i) => ({ correct: q.correct, chosen: Number.isInteger(answers[i]) ? answers[i] : null }));
+  const score = review.filter((r) => r.chosen === r.correct).length;
   const local = store.get('zerno_demo_stats', { attempts: 0 });
   local.attempts += 1; store.set('zerno_demo_stats', local);
+  const results = store.get('zerno_demo_results', []);
+  results.unshift({ id: 'r' + Date.now(), testId: t.id, testTitle: t.title, subjectId: t.subjectId, score, total: review.length,
+    percent: Math.round((score / review.length) * 100), timeSpent, date: new Date().toISOString() });
+  store.set('zerno_demo_results', results.slice(0, 200));
   state.data.stats = demoStats(); renderStats(false);
-  return { score: review.filter((r) => r.chosen === r.correct).length, total: review.length, review };
+  return { score, total: review.length, review };
+}
+
+/* ---------------- Ishtirokchi (ism + guruh) ---------------- */
+state.user = store.get('zerno_user', null);
+
+async function registerUser(name, group) {
+  if (state.mode === 'live') {
+    return fetchJson('api/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, group }) });
+  }
+  return { id: 'demo', name, group, token: 'demo' };
+}
+async function myResults() {
+  if (state.mode === 'live') {
+    const me = await fetchJson('api/me', { headers: { 'x-participant': state.user?.token || '' } });
+    return me.results;
+  }
+  return store.get('zerno_demo_results', []);
+}
+function setUser(u) {
+  state.user = u;
+  store.set('zerno_user', u);
+  renderUser();
+}
+function renderUser() {
+  const u = state.user;
+  $('#userLabel').textContent = u ? u.name.split(' ')[0] : 'Kirish';
+  $('#userAvatar').innerHTML = u
+    ? esc(u.name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase())
+    : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>';
+  $('#userBtn').setAttribute('aria-label', u ? `${u.name} — natijalarim` : 'Ro\'yxatdan o\'tish');
+}
+
+// Ro'yxatdan o'tish oynasi. then() — muvaffaqiyatli kirgandan keyin nima qilish
+function renderRegister(then) {
+  quiz.test = null;
+  body.innerHTML = headerHtml('Ro\'yxatdan o\'tish', 'Natijalaringiz saqlanib boradi', 'book', 'violet') + `
+  <form id="regForm" class="p-5 sm:p-6 space-y-4" novalidate>
+    <p class="text-sm text-white/60">Ism-familiyangiz va guruhingizni kiriting. Boshqa qurilmadan (masalan, telefondan) xuddi shu ism va guruhni yozsangiz — barcha natijalaringiz o'sha yerda ham chiqadi.</p>
+    <label class="block">
+      <span class="block text-xs text-white/55 mb-1.5">Ism-familiya</span>
+      <input name="name" autocomplete="name" required minlength="3" maxlength="80" placeholder="Masalan: Navruzbek Karimov"
+        class="w-full h-12 rounded-xl bg-white/[.06] border border-white/12 px-4 outline-none focus:border-cyan-300/70 transition">
+    </label>
+    <label class="block">
+      <span class="block text-xs text-white/55 mb-1.5">Guruh</span>
+      <input name="group" required maxlength="40" placeholder="Masalan: 11-A yoki 201-guruh"
+        class="w-full h-12 rounded-xl bg-white/[.06] border border-white/12 px-4 outline-none focus:border-cyan-300/70 transition">
+    </label>
+    <p id="regErr" class="text-sm text-rose-300 hidden"></p>
+    <button class="btn-primary w-full h-12 rounded-xl font-semibold">Davom etish</button>
+    <div class="flex items-center gap-3 pt-1 text-xs text-white/35"><span class="h-px flex-1 bg-white/10"></span>yoki<span class="h-px flex-1 bg-white/10"></span></div>
+    <button type="button" data-admin-login class="btn-glass w-full h-11 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-2">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+      Admin sifatida kirish
+    </button>
+  </form>`;
+  if (modal.classList.contains('hidden')) openModal();
+  const f = $('#regForm');
+  const fName = f.elements.namedItem('name'), fGroup = f.elements.namedItem('group');
+  fName.focus();
+  f.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = fName.value.trim().replace(/\s+/g, ' '), group = fGroup.value.trim();
+    const err = $('#regErr');
+    if (name.length < 3 || !name.includes(' ')) { err.textContent = 'Ism va familiyangizni to\'liq kiriting.'; err.classList.remove('hidden'); return; }
+    if (!group) { err.textContent = 'Guruhni kiriting.'; err.classList.remove('hidden'); return; }
+    const btn = f.querySelector('button'); btn.disabled = true; btn.textContent = 'Saqlanmoqda...';
+    try {
+      setUser(await registerUser(name, group));
+      toast(`Xush kelibsiz, ${state.user.name.split(' ')[0]}!`, 'ok');
+      then ? then() : closeModal(true);
+    } catch (ex) {
+      err.textContent = ex.message; err.classList.remove('hidden');
+      btn.disabled = false; btn.textContent = 'Davom etish';
+    }
+  });
+}
+
+// Admin sifatida kirish (parol serverda tekshiriladi, keyin admin panelga o'tadi)
+function renderAdminLogin() {
+  quiz.test = null;
+  body.innerHTML = headerHtml('Admin sifatida kirish', 'Boshqaruv paneli', 'code', 'fuchsia') + `
+  <form id="admForm" class="p-5 sm:p-6 space-y-4" novalidate>
+    <label class="block">
+      <span class="block text-xs text-white/55 mb-1.5">Admin paroli</span>
+      <input name="pwd" type="password" autocomplete="current-password" required
+        class="w-full h-12 rounded-xl bg-white/[.06] border border-white/12 px-4 outline-none focus:border-cyan-300/70 transition">
+    </label>
+    <p id="admErr" class="text-sm text-rose-300 hidden"></p>
+    <button class="btn-primary w-full h-12 rounded-xl font-semibold">Kirish</button>
+    <button type="button" data-back-register class="w-full h-10 text-sm text-white/50 hover:text-white transition">← O'quvchi sifatida kirish</button>
+  </form>`;
+  if (modal.classList.contains('hidden')) openModal();
+  const f = $('#admForm'), pwd = f.elements.namedItem('pwd'), err = $('#admErr');
+  pwd.focus();
+  f.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const show = (m) => { err.textContent = m; err.classList.remove('hidden'); };
+    if (state.mode !== 'live') return show('Admin panel faqat sayt serverda ishlaganda ochiladi. Bu demo versiya.');
+    if (!pwd.value) return show('Parolni kiriting.');
+    const btn = f.querySelector('button'); btn.disabled = true; btn.textContent = 'Tekshirilmoqda...';
+    try {
+      await fetchJson('api/admin/check', { headers: { 'x-admin-token': pwd.value } });
+      try { sessionStorage.setItem('zerno_admin', pwd.value); } catch {}
+      toast('Admin sifatida kirildi', 'ok');
+      location.href = 'admin';
+    } catch (ex) {
+      show(ex.message || 'Parol noto\'g\'ri');
+      btn.disabled = false; btn.textContent = 'Kirish';
+    }
+  });
+}
+
+async function renderMyResults() {
+  const u = state.user;
+  quiz.test = null;
+  body.innerHTML = headerHtml(u.name, `Guruh: ${u.group}`, 'book', 'violet') +
+    `<div class="p-8 grid place-items-center"><div class="w-8 h-8 rounded-full border-2 border-white/15 border-t-cyan-300 animate-spin"></div></div>`;
+  if (modal.classList.contains('hidden')) openModal();
+  let list = [];
+  try { list = await myResults(); } catch (e) {
+    if (/ro'yxatdan/i.test(e.message)) { setUser(null); return renderRegister(); }
+    toast('Natijalarni yuklab bo\'lmadi', 'err');
+  }
+  const avg = list.length ? Math.round(list.reduce((n, r) => n + r.percent, 0) / list.length) : 0;
+  const best = list.length ? Math.max(...list.map((r) => r.percent)) : 0;
+  body.innerHTML = headerHtml(u.name, `Guruh: ${u.group}`, 'book', 'violet') + `
+  <div class="p-5 sm:p-6">
+    <div class="grid grid-cols-3 gap-3">
+      ${[['Testlar', list.length], ["O'rtacha", avg + '%'], ['Eng yaxshi', best + '%']].map(([k, v]) => `
+        <div class="rounded-2xl border border-white/10 bg-white/[.04] p-4 text-center">
+          <div class="font-display text-2xl font-bold">${v}</div><div class="text-xs text-white/50 mt-1">${k}</div>
+        </div>`).join('')}
+    </div>
+    <h5 class="mt-6 mb-3 text-sm font-semibold text-white/70 uppercase tracking-wider">Mening natijalarim</h5>
+    <div class="space-y-2">
+      ${list.length ? list.map((r) => {
+        const s = subjectById(r.subjectId);
+        const tone = r.percent >= 80 ? 'text-emerald-300' : r.percent >= 50 ? 'text-amber-200' : 'text-rose-300';
+        return `
+        <div class="tone tone-${esc(s?.color || 'violet')} rounded-2xl border border-white/10 bg-white/[.04] p-3.5 flex items-center gap-3">
+          <div class="icon-tile w-10 h-10 rounded-xl grid place-items-center shrink-0">${svgIcon(s?.icon || 'book', 18)}</div>
+          <div class="flex-1 min-w-0">
+            <div class="font-medium truncate">${esc(r.testTitle)}</div>
+            <div class="text-xs text-white/45">${new Date(r.date).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' })} · ${fmtTime(r.timeSpent || 0)}</div>
+          </div>
+          <div class="text-right"><div class="font-display font-bold ${tone}">${r.percent}%</div><div class="text-xs text-white/45">${r.score}/${r.total}</div></div>
+        </div>`; }).join('') : '<p class="text-center text-white/50 py-6">Hali test yechilmagan. Birinchi testni boshlang!</p>'}
+    </div>
+    <div class="mt-6 flex flex-col sm:flex-row gap-3">
+      <button data-close class="btn-primary rounded-xl h-12 px-6 font-semibold flex-1">Testlarga qaytish</button>
+      <button data-logout class="btn-glass rounded-xl h-12 px-6 font-semibold">Boshqa ism bilan kirish</button>
+    </div>
+  </div>`;
 }
 
 /* ---------------- Render: statistika ---------------- */
@@ -646,6 +810,7 @@ function headerHtml(title, sub, icon, color) {
 
 // Bir nechta test bo'lsa — tanlash oynasi
 function openPicker(subjectId) {
+  if (!state.user) return renderRegister(() => openPicker(subjectId));
   const s = subjectById(subjectId);
   const tests = testsOf(subjectId);
   if (tests.length === 1) return startTest(tests[0].id);
@@ -665,6 +830,7 @@ function openPicker(subjectId) {
 }
 
 async function startTest(testId) {
+  if (!state.user) return renderRegister(() => startTest(testId));
   const meta = state.data.tests.find((t) => t.id === testId);
   const s = subjectById(meta?.subjectId) || { name: 'Test', icon: 'book', color: 'violet' };
   if (modal.classList.contains('hidden')) openModal();
@@ -760,7 +926,7 @@ async function finishTest() {
   quiz.done = true; stopTimer();
   const { test, subject: s } = quiz;
   try {
-    const res = await submitTest(test.id, quiz.answers);
+    const res = await submitTest(test.id, quiz.answers, test.durationMin * 60 - Math.max(quiz.left, 0));
     const pct = Math.round((res.score / res.total) * 100);
     const best = store.get('zerno_best', {});
     if (best[test.id] === undefined || pct > best[test.id]) { best[test.id] = pct; store.set('zerno_best', best); renderSubjects(); }
@@ -768,6 +934,7 @@ async function finishTest() {
     toast(pct >= 80 ? 'Ajoyib natija! 🎉' : pct >= 50 ? 'Yaxshi! Yana mashq qiling.' : 'Qayta urinib ko\'ring — siz uddalaysiz!', pct >= 50 ? 'ok' : 'info');
   } catch (e) {
     quiz.done = false;
+    if (/ro'yxatdan/i.test(e.message)) { setUser(null); toast('Iltimos, qayta ro\'yxatdan o\'ting', 'warn'); return renderRegister(() => startTest(test.id)); }
     toast('Natijani yuborib bo\'lmadi: ' + e.message, 'err');
   }
 }
@@ -817,6 +984,7 @@ function renderResult(res, pct) {
 
     <div class="mt-6 flex flex-col sm:flex-row gap-3">
       <button data-retry class="btn-primary rounded-xl h-12 px-6 font-semibold flex-1">Qayta urinish</button>
+      <button data-my-results class="btn-glass rounded-xl h-12 px-6 font-semibold flex-1">Mening natijalarim</button>
       <button data-close class="btn-glass rounded-xl h-12 px-6 font-semibold flex-1">Yopish</button>
     </div>
   </div>`;
@@ -829,6 +997,10 @@ modal.addEventListener('click', (e) => {
   if (!t) return;
   if (t.hasAttribute('data-close')) return closeModal();
   if (t.hasAttribute('data-force-close')) return closeModal(true);
+  if (t.hasAttribute('data-logout')) { setUser(null); return renderRegister(); }
+  if (t.hasAttribute('data-my-results')) return renderMyResults();
+  if (t.hasAttribute('data-admin-login')) return renderAdminLogin();
+  if (t.hasAttribute('data-back-register')) return renderRegister();
   if (t.hasAttribute('data-stay')) { quiz.confirmClose = false; return renderQuestion(); }
   if (t.dataset.pick) return startTest(t.dataset.pick);
   if (!quiz.test || quiz.done) { if (t.hasAttribute('data-retry') && quiz.test) startTest(quiz.test.id); return; }
@@ -883,6 +1055,8 @@ function startRandom() {
 $('#heroStart').addEventListener('click', () => document.getElementById('subjects').scrollIntoView({ behavior: 'smooth' }));
 $('#ctaStart').addEventListener('click', startRandom);
 
+$('#userBtn').addEventListener('click', () => (state.user ? renderMyResults() : renderRegister()));
+
 const menuBtn = $('#menuBtn'), mobileMenu = $('#mobileMenu');
 menuBtn.addEventListener('click', () => {
   const open = mobileMenu.classList.toggle('hidden') === false;
@@ -902,6 +1076,12 @@ document.querySelectorAll('.reveal').forEach((el, i) => { el.style.transitionDel
   await loadData();
   if (state.mode === 'live') $('#adminLink').classList.remove('hidden');
   else $('#modeBadge').classList.remove('hidden');
+  // Saqlangan foydalanuvchi boshqa rejimdan qolgan bo'lsa yoki serverda o'chirilgan bo'lsa — tozalash
+  if (state.user && (state.user.token === 'demo') !== (state.mode === 'demo')) setUser(null);
+  if (state.user && state.mode === 'live') {
+    fetchJson('api/me', { headers: { 'x-participant': state.user.token } }).catch((e) => { if (/ro'yxatdan/i.test(e.message)) setUser(null); });
+  }
+  renderUser();
   renderStats(); renderFilter(); renderSubjects(); renderGuides();
 })();
 </script>

@@ -40,7 +40,8 @@ ADMIN_TOKEN="kuchli-parol-yozing" npm start
 
 3. Brauzerda oching:
    - Sayt: http://localhost:3000
-   - Admin panel: http://localhost:3000/admin (parol — `ADMIN_TOKEN`)
+   - Admin panel: http://localhost:3000/admin yoki saytdagi **Kirish → Admin sifatida kirish**
+   - Standart admin paroli: **zerno2026** (`ADMIN_TOKEN` berilmasa). Serverda o'zgartirish tavsiya etiladi.
 
 ## Serverga (VPS) joylash
 
@@ -65,6 +66,28 @@ server {
 
 Render, Railway kabi hostinglarda: start buyrug'i `npm start`, muhit o'zgaruvchisi `ADMIN_TOKEN`. `data/` va `uploads/` papkalari doimiy diskda (persistent volume) turishi kerak.
 
+## Render + MongoDB Atlas (bepul)
+
+Render'ning bepul rejasida disk vaqtinchalik — shuning uchun ma'lumotlar MongoDB Atlas'da saqlanadi.
+`MONGODB_URI` berilsa, server avtomatik MongoDB'dan foydalanadi (testlar, o'quvchilar, natijalar va PDF fayllar — GridFS).
+
+Render → Environment o'zgaruvchilari:
+
+| Kalit | Qiymat |
+|---|---|
+| `MONGODB_URI` | Atlas'dan olingan `mongodb+srv://...` manzil |
+| `ADMIN_TOKEN` | Admin paroli (berilmasa: `zerno2026`) |
+| `SITE_URL` | `https://zerno.onrender.com` (sitemap uchun) |
+
+Atlas bepul klasteri 512 MB — minglab test va natijalar uchun yetadi; katta PDF'larni Google Drive havolasi orqali qo'yish tavsiya etiladi.
+
+## O'quvchilar va natijalar
+
+- Test boshlashdan oldin o'quvchi **ism-familiya va guruhini** kiritadi.
+- Har bir yechilgan test natijasi serverda saqlanadi. O'quvchi yuqoridagi ismi ustiga bosib **"Mening natijalarim"**ni ko'radi.
+- Boshqa qurilmada (telefonda) xuddi shu ism va guruhni kiritsa — barcha natijalari o'sha yerda ham chiqadi.
+- **Admin panel → Natijalar**: guruh va test bo'yicha saralash, **Excel (.xlsx)** yuklab olish.
+
 ## Ma'lumot qo'shish
 
 - **Admin panel → Testlar / Fanlar / Qo'llanmalar** — formalar orqali bittalab.
@@ -77,7 +100,9 @@ Render, Railway kabi hostinglarda: start buyrug'i `npm start`, muhit o'zgaruvchi
 |---|---|---|
 | GET | `/api/data` | Fanlar, testlar (javobsiz), qo'llanmalar, statistika |
 | GET | `/api/tests/:id` | Test savollari (to'g'ri javoblarsiz) |
-| POST | `/api/tests/:id/submit` | `{answers:[0,2,...], clientId}` → natija serverda hisoblanadi |
+| POST | `/api/tests/:id/submit` | `{answers:[0,2,...], timeSpent}` + `x-participant` sarlavhasi → natija serverda hisoblanadi |
+| POST | `/api/register` | `{name, group}` → ishtirokchi tokeni |
+| GET | `/api/me` | `x-participant` sarlavhasi bilan — o'z natijalari |
 | * | `/api/admin/...` | `x-admin-token` sarlavhasi bilan: fanlar, testlar, qo'llanmalar CRUD, import, eksport |
 
 To'g'ri javoblar foydalanuvchi brauzeriga yuborilmaydi — tekshiruv serverda bo'ladi.

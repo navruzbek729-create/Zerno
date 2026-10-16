@@ -58,7 +58,8 @@
   </header>
 
   <nav class="flex flex-wrap gap-2 mt-5" role="tablist">
-    <button class="tab btn btn-g" data-tab="tests" aria-selected="true">Testlar</button>
+    <button class="tab btn btn-g" data-tab="results" aria-selected="true">Natijalar</button>
+    <button class="tab btn btn-g" data-tab="tests" aria-selected="false">Testlar</button>
     <button class="tab btn btn-g" data-tab="subjects" aria-selected="false">Fanlar</button>
     <button class="tab btn btn-g" data-tab="guides" aria-selected="false">Qo'llanmalar</button>
     <button class="tab btn btn-g" data-tab="import" aria-selected="false">Import / Eksport</button>
@@ -75,9 +76,12 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const ICONS = ['calc', 'landmark', 'pen', 'flask', 'globe', 'atom', 'book', 'code', 'music', 'map'];
 const ICON_NAMES = { calc: 'Kalkulyator', landmark: 'Bino (tarix)', pen: 'Qalam', flask: 'Kolba', globe: 'Globus', atom: 'Atom', book: 'Kitob', code: 'Kod', music: 'Musiqa', map: 'Xarita' };
 const COLORS = ['violet', 'amber', 'cyan', 'emerald', 'rose', 'sky', 'fuchsia', 'lime'];
+const SERVER_ERR = location.protocol === 'file:'
+  ? 'Admin panel faylni to\'g\'ridan-to\'g\'ri ochganda ishlamaydi. Avval serverni ishga tushiring (npm start) va http://localhost:3000/admin manzilini oching.'
+  : 'Serverga ulanib bo\'lmadi. Server (npm start yoki pm2) ishlayotganini tekshiring.';
 let token = sessionStorage.getItem('zerno_admin') || '';
 let data = { subjects: [], tests: [], guides: [] };
-let tab = 'tests';
+let tab = 'results';
 
 function toast(msg, ok = true) {
   const el = document.createElement('div');
@@ -88,8 +92,11 @@ function toast(msg, ok = true) {
 async function api(path, opts = {}) {
   const headers = { 'x-admin-token': token, ...(opts.headers || {}) };
   if (opts.json !== undefined) { headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(opts.json); }
-  const r = await fetch('api/' + path, { ...opts, headers, cache: 'no-store' });
+  let r;
+  try { r = await fetch('api/' + path, { ...opts, headers, cache: 'no-store' }); }
+  catch { throw new Error(SERVER_ERR); }
   const ct = r.headers.get('content-type') || '';
+  if (!ct.includes('json') && r.status !== 401) throw new Error(SERVER_ERR);
   const body = ct.includes('json') ? await r.json() : {};
   if (r.status === 401) { logout(); throw new Error(body.error || 'Kirish talab qilinadi'); }
   if (!r.ok) throw new Error(body.error || 'Xatolik: ' + r.status);
@@ -115,7 +122,58 @@ const subjName = (id) => data.subjects.find((s) => s.id === id)?.name || '—';
 const subjOptions = (sel) => data.subjects.map((s) => `<option value="${esc(s.id)}" ${s.id === sel ? 'selected' : ''}>${esc(s.name)}</option>`).join('');
 
 function render() {
-  ({ tests: renderTests, subjects: renderSubjects, guides: renderGuides, import: renderImport })[tab]();
+  ({ results: renderResults, tests: renderTests, subjects: renderSubjects, guides: renderGuides, import: renderImport })[tab]();
+}
+
+/* ================= NATIJALAR ================= */
+let resFilter = { group: '', testId: '' };
+async function renderResults() {
+  $('#view').innerHTML = '<p class="text-white/50 p-4">Yuklanmoqda...</p>';
+  let r;
+  try { r = await api('admin/results?' + new URLSearchParams(resFilter)); } catch (e) { $('#view').innerHTML = `<p class="text-rose-300 p-4">${esc(e.message)}</p>`; return; }
+  const fmtT = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  const avg = r.results.length ? Math.round(r.results.reduce((n, x) => n + x.percent, 0) / r.results.length) : 0;
+  $('#view').innerHTML = `
+  <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-4">
+    <div>
+      <h2 class="font-display text-2xl font-bold">Natijalar</h2>
+      <p class="text-sm text-white/50 mt-1">Ro'yxatdan o'tganlar: <b class="text-white">${r.participants}</b> · Ko'rsatilgan natijalar: <b class="text-white">${r.results.length}</b> · O'rtacha: <b class="text-white">${avg}%</b></p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <select id="fGroup" class="inp" style="width:auto"><option value="">Barcha guruhlar</option>${r.groups.map((g) => `<option ${g === resFilter.group ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select>
+      <select id="fTest" class="inp" style="width:auto"><option value="">Barcha testlar</option>${data.tests.map((t) => `<option value="${esc(t.id)}" ${t.id === resFilter.testId ? 'selected' : ''}>${esc(t.title)}</option>`).join('')}</select>
+      <button class="btn btn-p" id="xlsx">Excel yuklab olish</button>
+    </div>
+  </div>
+  <div class="glass rounded-2xl overflow-x-auto">
+    <table class="w-full text-sm min-w-[720px]">
+      <thead class="text-left text-white/50 text-xs uppercase tracking-wider"><tr>
+        <th class="p-3">Ism-familiya</th><th class="p-3">Guruh</th><th class="p-3">Test</th><th class="p-3 text-right">Natija</th><th class="p-3 text-right">Vaqt</th><th class="p-3">Sana</th><th class="p-3"></th></tr></thead>
+      <tbody class="divide-y divide-white/10">
+        ${r.results.length ? r.results.map((x) => `
+        <tr class="hover:bg-white/[.03]">
+          <td class="p-3 font-medium">${esc(x.name)}</td><td class="p-3 text-white/70">${esc(x.group)}</td>
+          <td class="p-3 text-white/70">${esc(x.testTitle)}<div class="text-xs text-white/40">${esc(x.subject)}</div></td>
+          <td class="p-3 text-right font-semibold ${x.percent >= 80 ? 'text-emerald-300' : x.percent >= 50 ? 'text-amber-200' : 'text-rose-300'}">${x.score}/${x.total} · ${x.percent}%</td>
+          <td class="p-3 text-right text-white/60 tabular-nums">${fmtT(x.timeSpent)}</td>
+          <td class="p-3 text-white/60 whitespace-nowrap">${new Date(x.date).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' })}</td>
+          <td class="p-3 text-right"><button class="btn btn-d h-8 px-3 text-xs" data-del-r="${esc(x.id)}">O'chirish</button></td>
+        </tr>`).join('') : '<tr><td colspan="7" class="p-8 text-center text-white/50">Hozircha natijalar yo\'q.</td></tr>'}
+      </tbody>
+    </table>
+  </div>`;
+  $('#fGroup').onchange = (e) => { resFilter.group = e.target.value; renderResults(); };
+  $('#fTest').onchange = (e) => { resFilter.testId = e.target.value; renderResults(); };
+  $('#view').querySelectorAll('[data-del-r]').forEach((b) => b.onclick = () => confirmDelete(b, async () => { await api('admin/results/' + b.dataset.delR, { method: 'DELETE' }); toast('Natija o\'chirildi'); renderResults(); }));
+  $('#xlsx').onclick = async () => {
+    try {
+      const res = await fetch('api/admin/results.xlsx?' + new URLSearchParams(resFilter), { headers: { 'x-admin-token': token } });
+      if (!res.ok) throw new Error('Excel yaratib bo\'lmadi');
+      const a = document.createElement('a'); a.href = URL.createObjectURL(await res.blob());
+      a.download = `zerno-natijalar-${resFilter.group || 'hammasi'}-${new Date().toISOString().slice(0, 10)}.xlsx`; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    } catch (e) { toast(e.message, false); }
+  };
 }
 
 /* ================= TESTLAR ================= */
