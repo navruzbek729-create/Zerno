@@ -222,6 +222,9 @@
       <a href="#stats" class="block px-4 py-3 rounded-xl hover:bg-white/5">Statistika</a>
       <a href="#subjects" class="block px-4 py-3 rounded-xl hover:bg-white/5">Fanlar & Testlar</a>
       <a href="#guides" class="block px-4 py-3 rounded-xl hover:bg-white/5">Qo'llanmalar</a>
+      <div class="h-px bg-white/10 my-1"></div>
+      <button type="button" id="mStudent" class="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5">👤 O'quvchi sifatida kirish</button>
+      <button type="button" id="mAdmin" class="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5">🔒 Admin sifatida kirish</button>
     </div>
   </header>
 
@@ -238,7 +241,7 @@
           <span class="text-neon">Butunlay bepul.</span>
         </h1>
         <p class="mt-6 text-base sm:text-lg text-white/65 max-w-xl leading-relaxed">
-          ZERNO — interaktiv onlayn testlar va elektron qo'llanmalar platformasi. Bilimingizni sinang, natijani darhol ko'ring va darsliklarni bepul yuklab oling. Ro'yxatdan o'tish shart emas.
+          ZERNO — interaktiv onlayn testlar va elektron qo'llanmalar platformasi. Bilimingizni sinang, natijani darhol ko'ring va darsliklarni bepul yuklab oling. Ism va guruhingiz bilan kiring — natijalaringiz saqlanib boradi.
         </p>
         <div class="mt-9 flex flex-wrap gap-3">
           <button id="heroStart" class="btn-primary rounded-2xl px-6 h-14 font-semibold inline-flex items-center gap-2">
@@ -253,7 +256,7 @@
         <div class="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-white/55">
           <span class="inline-flex items-center gap-2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6ee7b7" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>Natija darhol</span>
           <span class="inline-flex items-center gap-2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6ee7b7" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>Vaqtli rejim</span>
-          <span class="inline-flex items-center gap-2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6ee7b7" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>Ro'yxatdan o'tishsiz</span>
+          <span class="inline-flex items-center gap-2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6ee7b7" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>Natijalar saqlanadi</span>
         </div>
       </div>
 
@@ -390,7 +393,7 @@
   </div>
 
   <!-- Toastlar -->
-  <div id="toasts" class="fixed z-[60] bottom-4 right-4 left-4 sm:left-auto flex flex-col gap-2 items-stretch sm:items-end pointer-events-none" aria-live="polite"></div>
+  <div id="toasts" class="fixed z-[60] top-[max(1rem,env(safe-area-inset-top))] sm:top-auto bottom-auto sm:bottom-4 right-4 left-4 sm:left-auto flex flex-col gap-2 items-stretch sm:items-end pointer-events-none" aria-live="polite"></div>
 
 <script>
 /* ===================================================================
@@ -527,10 +530,23 @@ function renderUser() {
   $('#userBtn').setAttribute('aria-label', u ? `${u.name} — natijalarim` : 'Ro\'yxatdan o\'tish');
 }
 
+const authTabs = (active) => `
+  <div class="px-5 sm:px-6 pt-5">
+    <div class="grid grid-cols-2 gap-1 p-1 rounded-2xl bg-white/[.05] border border-white/10" role="tablist">
+      <button type="button" role="tab" aria-selected="${active === 'student'}" ${active === 'student' ? '' : 'data-back-register'}
+        class="h-11 rounded-xl text-sm font-semibold transition ${active === 'student' ? 'bg-white text-[#080911]' : 'text-white/60 hover:text-white'}">👤 O'quvchi</button>
+      <button type="button" role="tab" aria-selected="${active === 'admin'}" ${active === 'admin' ? '' : 'data-admin-login'}
+        class="h-11 rounded-xl text-sm font-semibold transition ${active === 'admin' ? 'bg-white text-[#080911]' : 'text-white/60 hover:text-white'}">🔒 Admin</button>
+    </div>
+  </div>`;
+
 // Ro'yxatdan o'tish oynasi. then() — muvaffaqiyatli kirgandan keyin nima qilish
+let registerThen = null;
 function renderRegister(then) {
+  if (then !== undefined) registerThen = then;
+  then = registerThen;
   quiz.test = null;
-  body.innerHTML = headerHtml('Ro\'yxatdan o\'tish', 'Natijalaringiz saqlanib boradi', 'book', 'violet') + `
+  body.innerHTML = headerHtml('Kirish', 'Testni boshlash uchun ro\'yxatdan o\'ting', 'book', 'violet') + authTabs('student') + `
   <form id="regForm" class="p-5 sm:p-6 space-y-4" novalidate>
     <p class="text-sm text-white/60">Ism-familiyangiz va guruhingizni kiriting. Boshqa qurilmadan (masalan, telefondan) xuddi shu ism va guruhni yozsangiz — barcha natijalaringiz o'sha yerda ham chiqadi.</p>
     <label class="block">
@@ -544,17 +560,12 @@ function renderRegister(then) {
         class="w-full h-12 rounded-xl bg-white/[.06] border border-white/12 px-4 outline-none focus:border-cyan-300/70 transition">
     </label>
     <p id="regErr" class="text-sm text-rose-300 hidden"></p>
-    <button class="btn-primary w-full h-12 rounded-xl font-semibold">Davom etish</button>
-    <div class="flex items-center gap-3 pt-1 text-xs text-white/35"><span class="h-px flex-1 bg-white/10"></span>yoki<span class="h-px flex-1 bg-white/10"></span></div>
-    <button type="button" data-admin-login class="btn-glass w-full h-11 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-2">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
-      Admin sifatida kirish
-    </button>
+    <button class="btn-primary w-full h-12 rounded-xl font-semibold">Ro'yxatdan o'tish va boshlash</button>
   </form>`;
   if (modal.classList.contains('hidden')) openModal();
   const f = $('#regForm');
   const fName = f.elements.namedItem('name'), fGroup = f.elements.namedItem('group');
-  fName.focus();
+  if (matchMedia('(min-width: 640px)').matches) fName.focus();
   f.addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = fName.value.trim().replace(/\s+/g, ' '), group = fGroup.value.trim();
@@ -565,10 +576,11 @@ function renderRegister(then) {
     try {
       setUser(await registerUser(name, group));
       toast(`Xush kelibsiz, ${state.user.name.split(' ')[0]}!`, 'ok');
+      registerThen = null;
       then ? then() : closeModal(true);
     } catch (ex) {
       err.textContent = ex.message; err.classList.remove('hidden');
-      btn.disabled = false; btn.textContent = 'Davom etish';
+      btn.disabled = false; btn.textContent = 'Ro\'yxatdan o\'tish va boshlash';
     }
   });
 }
@@ -576,20 +588,20 @@ function renderRegister(then) {
 // Admin sifatida kirish (parol serverda tekshiriladi, keyin admin panelga o'tadi)
 function renderAdminLogin() {
   quiz.test = null;
-  body.innerHTML = headerHtml('Admin sifatida kirish', 'Boshqaruv paneli', 'code', 'fuchsia') + `
+  body.innerHTML = headerHtml('Kirish', 'Admin — boshqaruv paneli', 'code', 'fuchsia') + authTabs('admin') + `
   <form id="admForm" class="p-5 sm:p-6 space-y-4" novalidate>
+    <p class="text-sm text-white/60">Faqat sayt egasi uchun. Parolni kiritsangiz, admin panel ochiladi.</p>
     <label class="block">
       <span class="block text-xs text-white/55 mb-1.5">Admin paroli</span>
       <input name="pwd" type="password" autocomplete="current-password" required
         class="w-full h-12 rounded-xl bg-white/[.06] border border-white/12 px-4 outline-none focus:border-cyan-300/70 transition">
     </label>
     <p id="admErr" class="text-sm text-rose-300 hidden"></p>
-    <button class="btn-primary w-full h-12 rounded-xl font-semibold">Kirish</button>
-    <button type="button" data-back-register class="w-full h-10 text-sm text-white/50 hover:text-white transition">← O'quvchi sifatida kirish</button>
+    <button class="btn-primary w-full h-12 rounded-xl font-semibold">Admin panelga kirish</button>
   </form>`;
   if (modal.classList.contains('hidden')) openModal();
   const f = $('#admForm'), pwd = f.elements.namedItem('pwd'), err = $('#admErr');
-  pwd.focus();
+  if (matchMedia('(min-width: 640px)').matches) pwd.focus();
   f.addEventListener('submit', async (e) => {
     e.preventDefault();
     const show = (m) => { err.textContent = m; err.classList.remove('hidden'); };
@@ -603,7 +615,7 @@ function renderAdminLogin() {
       location.href = 'admin';
     } catch (ex) {
       show(ex.message || 'Parol noto\'g\'ri');
-      btn.disabled = false; btn.textContent = 'Kirish';
+      btn.disabled = false; btn.textContent = 'Admin panelga kirish';
     }
   });
 }
@@ -616,7 +628,7 @@ async function renderMyResults() {
   if (modal.classList.contains('hidden')) openModal();
   let list = [];
   try { list = await myResults(); } catch (e) {
-    if (/ro'yxatdan/i.test(e.message)) { setUser(null); return renderRegister(); }
+    if (/ro'yxatdan/i.test(e.message)) { setUser(null); return renderRegister(null); }
     toast('Natijalarni yuklab bo\'lmadi', 'err');
   }
   const avg = list.length ? Math.round(list.reduce((n, r) => n + r.percent, 0) / list.length) : 0;
@@ -997,7 +1009,7 @@ modal.addEventListener('click', (e) => {
   if (!t) return;
   if (t.hasAttribute('data-close')) return closeModal();
   if (t.hasAttribute('data-force-close')) return closeModal(true);
-  if (t.hasAttribute('data-logout')) { setUser(null); return renderRegister(); }
+  if (t.hasAttribute('data-logout')) { setUser(null); return renderRegister(null); }
   if (t.hasAttribute('data-my-results')) return renderMyResults();
   if (t.hasAttribute('data-admin-login')) return renderAdminLogin();
   if (t.hasAttribute('data-back-register')) return renderRegister();
@@ -1052,17 +1064,20 @@ function startRandom() {
   if (!tests.length) return toast('Hozircha testlar yo\'q', 'warn');
   startTest(tests[Math.floor(Math.random() * tests.length)].id);
 }
-$('#heroStart').addEventListener('click', () => document.getElementById('subjects').scrollIntoView({ behavior: 'smooth' }));
+const toSubjects = () => document.getElementById('subjects').scrollIntoView({ behavior: 'smooth' });
+$('#heroStart').addEventListener('click', () => (state.user ? toSubjects() : renderRegister(() => { closeModal(true); toSubjects(); })));
+$('#mStudent').addEventListener('click', () => (state.user ? renderMyResults() : renderRegister(null)));
+$('#mAdmin').addEventListener('click', () => renderAdminLogin());
 $('#ctaStart').addEventListener('click', startRandom);
 
-$('#userBtn').addEventListener('click', () => (state.user ? renderMyResults() : renderRegister()));
+$('#userBtn').addEventListener('click', () => (state.user ? renderMyResults() : renderRegister(null)));
 
 const menuBtn = $('#menuBtn'), mobileMenu = $('#mobileMenu');
 menuBtn.addEventListener('click', () => {
   const open = mobileMenu.classList.toggle('hidden') === false;
   menuBtn.setAttribute('aria-expanded', String(open));
 });
-mobileMenu.addEventListener('click', (e) => { if (e.target.closest('a')) { mobileMenu.classList.add('hidden'); menuBtn.setAttribute('aria-expanded', 'false'); } });
+mobileMenu.addEventListener('click', (e) => { if (e.target.closest('a, button')) { mobileMenu.classList.add('hidden'); menuBtn.setAttribute('aria-expanded', 'false'); } });
 
 /* Scroll animatsiyasi */
 const io = 'IntersectionObserver' in window
