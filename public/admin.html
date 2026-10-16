@@ -181,7 +181,10 @@ function renderTests() {
   $('#view').innerHTML = `
   <div class="flex items-center justify-between mb-4">
     <h2 class="font-display text-2xl font-bold">Testlar <span class="text-white/40 text-lg">(${data.tests.length})</span></h2>
-    <button class="btn btn-p" id="newTest" ${data.subjects.length ? '' : 'disabled title="Avval fan qo\'shing"'}>+ Yangi test</button>
+    <div class="flex flex-wrap gap-2">
+      <button class="btn btn-g" id="fileTest" ${data.subjects.length ? '' : 'disabled title="Avval fan qo\'shing"'}>📄 Fayldan yuklash</button>
+      <button class="btn btn-p" id="newTest" ${data.subjects.length ? '' : 'disabled title="Avval fan qo\'shing"'}>+ Yangi test</button>
+    </div>
   </div>
   <div class="glass rounded-2xl divide-y divide-white/10">
     ${data.tests.length ? data.tests.map((t) => `
@@ -191,19 +194,35 @@ function renderTests() {
         <div class="flex gap-2"><button class="btn btn-g" data-edit-test="${esc(t.id)}">Tahrirlash</button><button class="btn btn-d" data-del-test="${esc(t.id)}">O'chirish</button></div>
       </div>`).join('') : '<p class="p-6 text-white/50">Hozircha testlar yo\'q.</p>'}
   </div>`;
+  $('#fileTest').onclick = () => fileImport();
   $('#newTest').onclick = () => testEditor({ title: '', subjectId: data.subjects[0]?.id, durationMin: 10, level: '', questions: [{ q: '', options: ['', '', '', ''], correct: 0 }] });
   $('#view').querySelectorAll('[data-edit-test]').forEach((b) => b.onclick = async () => testEditor(await api('admin/tests/' + b.dataset.editTest)));
   $('#view').querySelectorAll('[data-del-test]').forEach((b) => b.onclick = () => confirmDelete(b, async () => { await api('admin/tests/' + b.dataset.delTest, { method: 'DELETE' }); toast('Test o\'chirildi'); reload(); }));
 }
 
-function testEditor(t) {
+function testEditor(t, fromFile) {
   const isNew = !t.id;
+  const missing = () => t.questions.filter((q) => q.correct === null || q.correct === undefined).length;
+  const banner = () => {
+    if (!fromFile) return '';
+    const m = missing();
+    return `<div id="fileBanner" class="glass rounded-2xl p-4 mb-4 flex flex-col sm:flex-row sm:items-center gap-3 ${m ? 'border-amber-300/50' : 'border-emerald-300/40'}">
+      <div class="flex-1 text-sm">
+        <b>${esc(fromFile.name)}</b> faylidan <b>${t.questions.length}</b> ta savol o'qildi.
+        ${m ? `<span class="text-amber-200"> <b>${m}</b> ta savolda to'g'ri javob aniqlanmadi — ular sariq ramkada, doirachani bosib belgilang.</span>`
+            : '<span class="text-emerald-300"> Hamma savollarda to\'g\'ri javob belgilangan. Tekshirib, saqlang.</span>'}
+        ${fromFile.warnings?.length ? `<details class="mt-1 text-white/50"><summary class="cursor-pointer">Ogohlantirishlar (${fromFile.warnings.length})</summary>${fromFile.warnings.map((w) => `<div>• ${esc(w)}</div>`).join('')}</details>` : ''}
+      </div>
+      ${m ? '<button class="btn btn-g shrink-0" id="nextMissing">Keyingi belgilanmagan ↓</button>' : ''}
+    </div>`;
+  };
   const draw = () => {
     $('#view').innerHTML = `
     <div class="flex items-center justify-between mb-4">
-      <h2 class="font-display text-2xl font-bold">${isNew ? 'Yangi test' : 'Testni tahrirlash'}</h2>
+      <h2 class="font-display text-2xl font-bold">${fromFile ? 'Fayldan yangi test' : isNew ? 'Yangi test' : 'Testni tahrirlash'}</h2>
       <button class="btn btn-g" id="back">← Ortga</button>
     </div>
+    ${banner()}
     <div class="glass rounded-2xl p-5 grid sm:grid-cols-4 gap-4">
       <label class="sm:col-span-2"><span>Test nomi</span><input class="inp" id="tTitle" value="${esc(t.title)}"></label>
       <label><span>Fan</span><select class="inp" id="tSubj">${subjOptions(t.subjectId)}</select></label>
@@ -212,7 +231,7 @@ function testEditor(t) {
     </div>
     <div id="qList" class="mt-4 space-y-3">
       ${t.questions.map((q, i) => `
-      <div class="glass rounded-2xl p-5" data-q="${i}">
+      <div class="glass rounded-2xl p-5 ${q.correct === null || q.correct === undefined ? 'ring-2 ring-amber-300/70' : ''}" data-q="${i}">
         <div class="flex items-center justify-between mb-3"><b class="text-sm text-white/70">${i + 1}-savol</b>
           <button class="btn btn-d h-8 px-3 text-xs" data-rmq="${i}" ${t.questions.length < 2 ? 'disabled' : ''}>Savolni o'chirish</button></div>
         <textarea class="inp" rows="2" data-qtext="${i}" placeholder="Savol matni">${esc(q.q)}</textarea>
@@ -226,7 +245,7 @@ function testEditor(t) {
             </div>`).join('')}
         </div>
         ${q.options.length < 6 ? `<button class="text-sm text-cyan-300 mt-3" data-addo="${i}">+ Variant qo'shish</button>` : ''}
-        <p class="text-xs text-white/40 mt-2">To'g'ri javobni chapdagi doiracha bilan belgilang.</p>
+        <p class="text-xs mt-2 ${q.correct === null || q.correct === undefined ? 'text-amber-200' : 'text-white/40'}" data-hint="${i}">${q.correct === null || q.correct === undefined ? '⚠ To\'g\'ri javob belgilanmagan — chapdagi doirachani bosing.' : 'To\'g\'ri javobni chapdagi doiracha bilan belgilang.'}</p>
       </div>`).join('')}
     </div>
     <div class="flex flex-wrap gap-2 mt-4">
@@ -240,6 +259,18 @@ function testEditor(t) {
       document.querySelectorAll('[data-correct]:checked').forEach((el) => { const [i, j] = el.dataset.correct.split(':').map(Number); t.questions[i].correct = j; });
     };
     $('#back').onclick = () => render();
+    // Doiracha bosilganda — sariq ramka va banner darhol yangilanadi
+    $('#view').querySelectorAll('[data-correct]').forEach((r) => r.onchange = () => {
+      const [i, j] = r.dataset.correct.split(':').map(Number); t.questions[i].correct = j;
+      const card = $(`[data-q="${i}"]`); card.classList.remove('ring-2', 'ring-amber-300/70');
+      const h = $(`[data-hint="${i}"]`); h.className = 'text-xs mt-2 text-white/40'; h.textContent = 'To\'g\'ri javobni chapdagi doiracha bilan belgilang.';
+      if (fromFile) { const b = $('#fileBanner'); b.outerHTML = banner(); bindMissing(); }
+    });
+    const bindMissing = () => { const nb = $('#nextMissing'); if (nb) nb.onclick = () => {
+      const i = t.questions.findIndex((q) => q.correct === null || q.correct === undefined);
+      if (i >= 0) $(`[data-q="${i}"]`).scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }; };
+    bindMissing();
     $('#addQ').onclick = () => { sync(); t.questions.push({ q: '', options: ['', '', '', ''], correct: 0 }); draw(); };
     $('#view').querySelectorAll('[data-rmq]').forEach((b) => b.onclick = () => { sync(); t.questions.splice(Number(b.dataset.rmq), 1); draw(); });
     $('#view').querySelectorAll('[data-addo]').forEach((b) => b.onclick = () => { sync(); t.questions[b.dataset.addo].options.push(''); draw(); });
@@ -249,6 +280,8 @@ function testEditor(t) {
     });
     $('#saveT').onclick = async () => {
       sync();
+      const mi = t.questions.findIndex((q) => q.correct === null || q.correct === undefined);
+      if (mi >= 0) { toast(`${mi + 1}-savolda to'g'ri javob belgilanmagan`, false); $(`[data-q="${mi}"]`).scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
       try {
         await api(isNew ? 'admin/tests' : 'admin/tests/' + t.id, { method: isNew ? 'POST' : 'PUT', json: t });
         toast('Test saqlandi'); await reload();
@@ -256,6 +289,80 @@ function testEditor(t) {
     };
   };
   draw();
+}
+
+/* ================= FAYLDAN TEST ================= */
+function fileImport() {
+  $('#view').innerHTML = `
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="font-display text-2xl font-bold">Fayldan test yuklash</h2>
+    <button class="btn btn-g" id="back">← Ortga</button>
+  </div>
+  <div class="grid lg:grid-cols-5 gap-5">
+    <form id="fiForm" class="glass rounded-2xl p-5 lg:col-span-3 space-y-4">
+      <label id="drop" class="block cursor-pointer rounded-2xl border-2 border-dashed border-white/20 hover:border-cyan-300/70 transition p-8 text-center">
+        <input type="file" id="fiFile" accept=".docx,.xlsx,.txt,.csv" class="sr-only">
+        <div class="text-4xl">📄</div>
+        <div id="fiName" class="font-semibold mt-2">Faylni shu yerga tashlang yoki bosib tanlang</div>
+        <div class="text-xs text-white/45 mt-1">Word (.docx), Excel (.xlsx) yoki matn (.txt) · 15 MB gacha</div>
+      </label>
+      <div class="grid sm:grid-cols-2 gap-4">
+        <label class="sm:col-span-2"><span>Test nomi (bo'sh qolsa — fayl nomi)</span><input class="inp" id="fiTitle" placeholder="Masalan: 9-sinf O'zbekiston tarixi"></label>
+        <label><span>Fan</span><select class="inp" id="fiSubj">${subjOptions(data.subjects[0]?.id)}</select></label>
+        <label><span>Vaqt (daqiqa)</span><input class="inp" id="fiDur" type="number" min="1" max="180" value="20"></label>
+        <label class="sm:col-span-2"><span>Daraja (ixtiyoriy)</span><input class="inp" id="fiLevel" placeholder="Boshlang'ich, O'rta, Yuqori..."></label>
+      </div>
+      <button class="btn btn-p w-full" id="fiGo" type="submit" disabled>Faylni o'qish</button>
+      <p class="text-xs text-white/45">Fayl o'qilgach savollar tahrirlash oynasida ochiladi: tekshirasiz, kerak bo'lsa to'g'ri javobni belgilaysiz va saqlaysiz. Saqlamaguningizcha saytda hech narsa o'zgarmaydi.</p>
+    </form>
+    <div class="glass rounded-2xl p-5 lg:col-span-2 text-sm space-y-3 h-fit">
+      <h3 class="font-display text-lg font-bold">Fayl qanday bo'lishi kerak</h3>
+      <p class="text-white/60">Savollar raqamlangan, variantlar <b>A) B) C) D)</b> bilan. To'g'ri javobni quyidagilardan biri bilan belgilang:</p>
+      <ul class="text-white/60 space-y-1 list-disc pl-5">
+        <li>variant oldiga <b>*</b> yoki <b>+</b> qo'ying</li>
+        <li>Word'da to'g'ri variantni <b>qalin</b> qiling yoki marker bilan bo'yang</li>
+        <li>savol ostiga <b>Javob: B</b> deb yozing</li>
+        <li>fayl oxiriga <b>Javoblar: 1-B, 2-C, 3-A</b> kalitini qo'shing</li>
+      </ul>
+      <pre class="rounded-xl bg-black/30 p-3 text-xs text-white/75 whitespace-pre-wrap">1. O'zbekiston mustaqilligi qachon e'lon qilingan?
+A) 1990-yil
+*B) 1991-yil 31-avgust
+C) 1992-yil
+D) 1993-yil
+
+2. Amir Temur qaysi yili tug'ilgan?
+A) 1320  B) 1336  C) 1370  D) 1405
+Javob: B</pre>
+      <p class="text-white/60"><b>Excel</b> uchun ustunlar: <code>Savol | A | B | C | D | Javob</code> (javob — harf yoki raqam).</p>
+      <p class="text-white/45 text-xs">Kirill harflari (А Б В Г) ham tushuniladi. Eski .doc fayllarni Word'da .docx qilib saqlang.</p>
+    </div>
+  </div>`;
+  let file = null;
+  const pick = (f) => {
+    if (!f) return; file = f;
+    $('#fiName').textContent = f.name; $('#fiGo').disabled = false;
+    if (!$('#fiTitle').value) $('#fiTitle').placeholder = f.name.replace(/\.[^.]+$/, '');
+  };
+  $('#back').onclick = () => render();
+  $('#fiFile').onchange = (e) => pick(e.target.files[0]);
+  const drop = $('#drop');
+  ['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('border-cyan-300/70'); }));
+  ['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('border-cyan-300/70'); }));
+  drop.addEventListener('drop', (e) => pick(e.dataTransfer.files[0]));
+  $('#fiForm').onsubmit = async (e) => {
+    e.preventDefault(); if (!file) return;
+    const btn = $('#fiGo'); btn.disabled = true; btn.textContent = 'O\'qilmoqda...';
+    try {
+      const fd = new FormData(); fd.append('file', file);
+      const r = await api('admin/tests/parse', { method: 'POST', body: fd });
+      testEditor({
+        title: $('#fiTitle').value.trim() || r.title, subjectId: $('#fiSubj').value,
+        durationMin: Number($('#fiDur').value) || 20, level: $('#fiLevel').value.trim(),
+        questions: r.questions.map((q) => ({ q: q.q, options: q.options.length >= 2 ? q.options : [...q.options, '', ''].slice(0, 2), correct: q.correct })),
+      }, { name: file.name, warnings: r.warnings });
+      window.scrollTo({ top: 0 });
+    } catch (err) { toast(err.message, false); btn.disabled = false; btn.textContent = 'Faylni o\'qish'; }
+  };
 }
 
 /* ================= FANLAR ================= */

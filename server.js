@@ -10,6 +10,7 @@
 const express = require('express');
 const multer = require('multer');
 const ExcelJS = require('exceljs');
+const { parseTestFile } = require('./lib/test-parser');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -175,7 +176,7 @@ function validateTest(b, existingId) {
   if (!title) throw new Error('Test nomi kiritilmagan');
   if (!db.subjects.some((s) => s.id === b.subjectId)) throw new Error('Fan topilmadi');
   if (!Array.isArray(b.questions) || !b.questions.length) throw new Error('Kamida bitta savol kerak');
-  const questions = b.questions.slice(0, 200).map((q, i) => {
+  const questions = b.questions.slice(0, 500).map((q, i) => {
     const options = (Array.isArray(q.options) ? q.options : []).map((o) => str(o, 300)).filter(Boolean).slice(0, 6);
     const correct = Number(q.correct);
     if (!str(q.q)) throw new Error(`${i + 1}-savol matni bo'sh`);
@@ -419,6 +420,19 @@ admin.put('/tests/:id', wrap((req, res) => {
   if (i < 0) throw new Error('Test topilmadi');
   db.tests[i] = validateTest(req.body, req.params.id); saveDb(); res.json(testMeta(db.tests[i]));
 }));
+// Tayyor fayldan (Word / Excel / matn) savollarni o'qish — saqlamaydi, faqat ko'rib chiqish uchun qaytaradi
+const testFileUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } }).single('file');
+admin.post('/tests/parse', (req, res) => {
+  testFileUpload(req, res, async (err) => {
+    try {
+      if (err) throw new Error(err.code === 'LIMIT_FILE_SIZE' ? 'Fayl juda katta (15 MB dan oshmasin)' : err.message);
+      if (!req.file) throw new Error('Fayl tanlanmagan');
+      const name = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+      const r = await parseTestFile(req.file.buffer, name);
+      res.json({ ...r, title: name.replace(/\.[^.]+$/, '').replace(/[_]+/g, ' ').trim().slice(0, 120) });
+    } catch (e) { res.status(400).json({ error: e.message }); }
+  });
+});
 admin.delete('/tests/:id', wrap((req, res) => {
   db.tests = db.tests.filter((x) => x.id !== req.params.id); saveDb(); res.json({ ok: true });
 }));
