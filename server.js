@@ -202,8 +202,10 @@ app.use((req, res, next) => {
   next();
 });
 
+require('./lib/telegram').setupTelegram(app);
+
 /* ---- Ochiq API ---- */
-app.get('/api/health', (req, res) => res.json({ ok: true, admin: Boolean(ADMIN_TOKEN) }));
+app.get('/api/health', (req, res) => res.json({ ok: true, admin: Boolean(ADMIN_TOKEN), telegram: Boolean(process.env.TELEGRAM_BOT_TOKEN) }));
 
 app.get('/api/data', (req, res) => {
   res.json({
