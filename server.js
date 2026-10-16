@@ -36,7 +36,7 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
  * Berilmagan bo'lsa — data/db.json fayli (VPS yoki kompyuterda).
  * Butun ilova xotiradagi `db` obyekti bilan ishlaydi; saveDb() o'zgarishlarni saqlaydi.
  */
-const MONGODB_URI = process.env.MONGODB_URI || '';
+const MONGODB_URI = (process.env.MONGODB_URI || process.env.MongoDb_url || process.env.MONGODB_URL || process.env.MONGO_URL || '').trim();
 const COLLS = ['subjects', 'tests', 'guides', 'participants', 'results'];
 let mongo = null;            // { client, dbm, bucket }
 const synced = {};           // MongoDB bilan oxirgi sinxron holat: coll -> Map(id -> json)
